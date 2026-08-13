@@ -1,0 +1,74 @@
+services:
+  db:
+    image: postgres:15
+    container_name: odoo16-db
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      PGDATA: ${PGDATA}
+    volumes:
+      - ./postgresql:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  odoo:
+    build:
+      context: .
+      dockerfile: docker/odoo/Dockerfile
+    image: odoo16-dev:latest
+    container_name: odoo16-web
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      HOST: ${ODOO_DB_HOST}
+      PORT: ${ODOO_DB_PORT}
+      USER: ${ODOO_DB_USER}
+      PASSWORD: ${ODOO_DB_PASSWORD}
+      ODOO_DB_NAME: ${ODOO_DB_NAME}
+    ports:
+      - "${ODOO_HTTP_PORT}:8069"
+      - "${ODOO_LONGPOLLING_PORT}:8072"
+    volumes:
+      - ./config/odoo.conf:/etc/odoo/odoo.conf
+      - ./addons:/mnt/extra-addons
+      - ./odoo-web-data:/var/lib/odoo
+    command:
+      - /opt/odoo-dev/entrypoint-dev.sh
+
+  addon_watcher:
+    image: odoo16-dev:latest
+    container_name: odoo16-addon-watcher
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      odoo:
+        condition: service_started
+    env_file:
+      - .env
+    environment:
+      ODOO_DB_NAME: ${ODOO_DB_NAME}
+      ODOO_DB_HOST: ${ODOO_DB_HOST}
+      ODOO_DB_PORT: ${ODOO_DB_PORT}
+      ODOO_DB_USER: ${ODOO_DB_USER}
+      ODOO_DB_PASSWORD: ${ODOO_DB_PASSWORD}
+      WATCHER_DEBOUNCE_SECONDS: ${WATCHER_DEBOUNCE_SECONDS}
+      ADDONS_DIR: /mnt/extra-addons
+    volumes:
+      - ./config/odoo.conf:/etc/odoo/odoo.conf
+      - ./addons:/mnt/extra-addons
+      - ./odoo-web-data:/var/lib/odoo
+    command:
+      - python3
+      - /opt/odoo-dev/watchers/watch_addons.py

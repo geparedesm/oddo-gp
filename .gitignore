@@ -1,0 +1,15 @@
+.DS_Store
+*.log
+*.pid
+*.pyc
+*.pyo
+*.swp
+
+addons/**/__pycache__/
+addons/**/*.py[cod]
+
+postgresql/*
+!postgresql/.gitkeep
+
+odoo-web-data/*
+!odoo-web-data/.gitkeep
