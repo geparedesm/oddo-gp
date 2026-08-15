@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="action_commercial_property_welcome" model="ir.actions.client">
+        <field name="name">Commercial Properties</field>
+        <field name="tag">display_notification</field>
+        <field name="params">{'title': 'Commercial Properties', 'message': 'The module foundation is ready. Property inventory will be available in Phase 2.', 'type': 'info', 'sticky': False}</field>
+    </record>
+</odoo>

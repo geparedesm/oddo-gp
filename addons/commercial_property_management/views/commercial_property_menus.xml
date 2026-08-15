@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <menuitem
+        id="menu_commercial_property_root"
+        name="Commercial Properties"
+        sequence="45"
+        groups="commercial_property_management.group_property_user"
+        action="commercial_property_management.action_commercial_property_welcome"
+        web_icon="commercial_property_management,static/description/icon.png"
+    />
+</odoo>

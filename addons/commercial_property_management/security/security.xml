@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="module_category_commercial_property_management" model="ir.module.category">
+        <field name="name">Commercial Property Management</field>
+        <field name="sequence">45</field>
+    </record>
+
+    <record id="group_property_user" model="res.groups">
+        <field name="name">Property User</field>
+        <field name="category_id" ref="module_category_commercial_property_management"/>
+    </record>
+
+    <record id="group_property_manager" model="res.groups">
+        <field name="name">Property Manager</field>
+        <field name="category_id" ref="module_category_commercial_property_management"/>
+        <field name="implied_ids" eval="[(4, ref('commercial_property_management.group_property_user'))]"/>
+    </record>
+
+    <record id="group_property_administrator" model="res.groups">
+        <field name="name">Property Administrator</field>
+        <field name="category_id" ref="module_category_commercial_property_management"/>
+        <field name="implied_ids" eval="[(4, ref('commercial_property_management.group_property_manager'))]"/>
+    </record>
+
+    <record id="base.group_system" model="res.groups">
+        <field name="implied_ids" eval="[(4, ref('commercial_property_management.group_property_administrator'))]"/>
+    </record>
+</odoo>

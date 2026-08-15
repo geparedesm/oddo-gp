@@ -1,0 +1,16 @@
+{
+    "name": "Commercial Property Management",
+    "summary": "Manage commercial property operations",
+    "version": "16.0.1.0.0",
+    "category": "Services/Property Management",
+    "license": "LGPL-3",
+    "depends": ["base", "contacts", "mail"],
+    "data": [
+        "security/security.xml",
+        "security/ir.model.access.csv",
+        "data/commercial_property_actions.xml",
+        "views/commercial_property_menus.xml",
+    ],
+    "application": True,
+    "installable": True,
+}
