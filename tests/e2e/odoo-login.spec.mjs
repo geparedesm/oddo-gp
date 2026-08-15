@@ -245,6 +245,27 @@ test("an administrator can create person and company tenants while a Property Us
   await expectNoClientOrServerErrors(page, monitored);
 });
 
+test("an administrator can prepare a published public property listing", async ({ page }) => {
+  const monitored = monitorPage(page);
+  const propertyName = `E2E Public Listing ${Date.now()}`;
+  const publicName = "Harbour-view office suite";
+  const publicDescription = "Bright office space with flexible meeting areas.";
+
+  await login(page, administrator);
+  await openProperties(page);
+  await createProperty(page, propertyName);
+  await page.getByText("Public Listing", { exact: true }).click();
+  await page.getByLabel("Published?", { exact: true }).check();
+  await page.getByLabel("Public Name", { exact: true }).fill(publicName);
+  await page.getByLabel("Public Monthly Rent", { exact: true }).fill("1800");
+  await page.getByPlaceholder("Describe the property for prospective tenants...").fill(publicDescription);
+  await page.getByRole("button", { name: "Save manually" }).click();
+
+  await expect(page.getByLabel("Published?", { exact: true })).toBeChecked();
+  await expect(page.getByLabel("Public Name", { exact: true })).toHaveValue(publicName);
+  await expectNoClientOrServerErrors(page, monitored);
+});
+
 test("an administrator can activate a lease and review its property history", async ({ page }) => {
   const monitored = monitorPage(page);
   const propertyName = `E2E Lease Property ${Date.now()}`;

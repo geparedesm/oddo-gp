@@ -64,6 +64,21 @@
                         <page string="Internal Notes">
                             <field name="notes" placeholder="Add operational notes for the property..."/>
                         </page>
+                        <page string="Public Listing" groups="commercial_property_management.group_property_manager">
+                            <group>
+                                <group>
+                                    <field name="is_published"/>
+                                    <field name="public_name" placeholder="e.g. Bright city-centre office"/>
+                                    <field name="public_monthly_rent" widget="monetary" options="{'currency_field': 'currency_id'}"/>
+                                </group>
+                                <group>
+                                    <field name="public_feature_ids" widget="many2many_tags"/>
+                                </group>
+                            </group>
+                            <group>
+                                <field name="public_description" placeholder="Describe the property for prospective tenants..."/>
+                            </group>
+                        </page>
                     </notebook>
                 </sheet>
             </form>

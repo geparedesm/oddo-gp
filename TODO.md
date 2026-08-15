@@ -113,11 +113,11 @@ manual property edit.
 
 Goal: expose only safe available-property data to an external agent.
 
-- [ ] Add public name, description, price, features and publication fields.
-- [ ] Create a separate public-data serializer or model method.
-- [ ] Add authenticated endpoints for property search and property detail.
-- [ ] Add filters for availability, minimum area and maximum rent.
-- [ ] Test that tenant data, deposits, internal notes and contracts are never
+- [x] Add public name, description, price, features and publication fields.
+- [x] Create a separate public-data serializer or model method.
+- [x] Add authenticated endpoints for property search and property detail.
+- [x] Add filters for availability, minimum area and maximum rent.
+- [x] Test that tenant data, deposits, internal notes and contracts are never
       returned by the API.
 
 Done when: a valid API client can search published available properties, while

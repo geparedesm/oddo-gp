@@ -61,6 +61,17 @@ class CommercialProperty(models.Model):
         help="Primary photo used to identify this property in Kanban and form views.",
     )
     notes = fields.Text(string="Internal Notes")
+    public_name = fields.Char(string="Public Name", translate=True)
+    public_description = fields.Text(string="Public Description", translate=True)
+    public_monthly_rent = fields.Monetary(string="Public Monthly Rent")
+    public_feature_ids = fields.Many2many(
+        "commercial.property.feature",
+        string="Public Features",
+    )
+    is_published = fields.Boolean(
+        string="Published",
+        help="Make this available property visible through the Hermes public API.",
+    )
     lease_ids = fields.One2many("commercial.lease", "property_id", string="Lease History", copy=False)
     current_lease_id = fields.Many2one(
         "commercial.lease",
@@ -100,6 +111,14 @@ class CommercialProperty(models.Model):
             if property_record.monthly_rent < 0:
                 raise ValidationError(_("The monthly rent cannot be negative."))
 
+    @api.constrains("is_published", "public_name", "public_description", "public_monthly_rent")
+    def _check_public_listing(self):
+        for property_record in self.filtered("is_published"):
+            if not property_record.public_name or not property_record.public_description:
+                raise ValidationError(_("Published properties need a public name and description."))
+            if property_record.public_monthly_rent <= 0:
+                raise ValidationError(_("Published properties need a public monthly rent greater than zero."))
+
     @api.depends("lease_ids.state", "lease_ids.tenant_id")
     def _compute_current_lease(self):
         for property_record in self:
@@ -120,3 +139,35 @@ class CommercialProperty(models.Model):
                     state = "rented"
             if property_record.state != state:
                 property_record.state = state
+
+    def get_public_data(self):
+        """Return the deliberately small data contract exposed to external agents."""
+        self.ensure_one()
+        property_type_label = dict(self._fields["property_type"].selection).get(self.property_type)
+        return {
+            "code": self.code,
+            "name": self.public_name,
+            "description": self.public_description,
+            "monthly_rent": self.public_monthly_rent,
+            "currency": self.currency_id.name,
+            "area": self.area,
+            "property_type": property_type_label,
+            "features": self.public_feature_ids.mapped("name"),
+            "city": self.city or None,
+            "available_from": fields.Date.to_string(self.available_date) if self.available_date else None,
+        }
+
+    @api.model
+    def search_public_properties(self, min_area=None, max_rent=None, code=None, limit=None):
+        domain = [
+            ("active", "=", True),
+            ("is_published", "=", True),
+            ("state", "=", "available"),
+        ]
+        if min_area is not None:
+            domain.append(("area", ">=", min_area))
+        if max_rent is not None:
+            domain.append(("public_monthly_rent", "<=", max_rent))
+        if code:
+            domain.append(("code", "=", code))
+        return self.search(domain, limit=limit, order="public_monthly_rent asc, id")
