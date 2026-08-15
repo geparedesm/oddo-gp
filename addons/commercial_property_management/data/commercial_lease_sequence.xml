@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="seq_commercial_lease" model="ir.sequence">
+        <field name="name">Commercial Lease</field>
+        <field name="code">commercial.lease</field>
+        <field name="prefix">CL%(year)s-</field>
+        <field name="padding">4</field>
+        <field name="company_id" eval="False"/>
+    </record>
+</odoo>

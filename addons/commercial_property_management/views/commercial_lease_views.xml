@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_commercial_lease_tree" model="ir.ui.view">
+        <field name="name">commercial.lease.tree</field>
+        <field name="model">commercial.lease</field>
+        <field name="arch" type="xml">
+            <tree decoration-success="state == 'active'" decoration-muted="state in ('expired', 'cancelled')">
+                <field name="name"/>
+                <field name="property_id"/>
+                <field name="tenant_id"/>
+                <field name="start_date"/>
+                <field name="end_date"/>
+                <field name="monthly_rent" widget="monetary"/>
+                <field name="currency_id" invisible="1"/>
+                <field name="state" widget="badge"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_commercial_lease_form" model="ir.ui.view">
+        <field name="name">commercial.lease.form</field>
+        <field name="model">commercial.lease</field>
+        <field name="arch" type="xml">
+            <form string="Lease Contract">
+                <header>
+                    <button name="action_activate" string="Activate" type="object" class="btn-primary" invisible="state != 'draft'"/>
+                    <button name="action_expire" string="Mark Expired" type="object" invisible="state != 'active'"/>
+                    <button name="action_cancel" string="Cancel" type="object" invisible="state not in ('draft', 'active')"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,active,expired,cancelled"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <label for="name"/>
+                        <h1><field name="name" readonly="1"/></h1>
+                    </div>
+                    <group>
+                        <group string="Lease Details">
+                            <field name="property_id" options="{'no_create': True}"/>
+                            <field name="tenant_id" options="{'no_create': True}"/>
+                            <field name="monthly_rent" widget="monetary" options="{'currency_field': 'currency_id'}"/>
+                            <field name="currency_id" invisible="1"/>
+                        </group>
+                        <group string="Term">
+                            <field name="start_date"/>
+                            <field name="end_date"/>
+                            <field name="company_id" groups="base.group_multi_company"/>
+                        </group>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_commercial_lease_search" model="ir.ui.view">
+        <field name="name">commercial.lease.search</field>
+        <field name="model">commercial.lease</field>
+        <field name="arch" type="xml">
+            <search string="Search Lease Contracts">
+                <field name="name"/>
+                <field name="property_id"/>
+                <field name="tenant_id"/>
+                <filter name="draft" string="Draft" domain="[('state', '=', 'draft')]"/>
+                <filter name="active" string="Active" domain="[('state', '=', 'active')]"/>
+                <filter name="expired" string="Expired" domain="[('state', '=', 'expired')]"/>
+                <filter name="cancelled" string="Cancelled" domain="[('state', '=', 'cancelled')]"/>
+            </search>
+        </field>
+    </record>
+
+    <record id="view_commercial_property_form_lease_history" model="ir.ui.view">
+        <field name="name">commercial.property.form.lease.history</field>
+        <field name="model">commercial.property</field>
+        <field name="inherit_id" ref="commercial_property_management.view_commercial_property_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//notebook" position="inside">
+                <page string="Lease History" groups="commercial_property_management.group_property_manager">
+                    <group>
+                        <field name="current_tenant_id" readonly="1"/>
+                        <field name="current_lease_id" readonly="1"/>
+                    </group>
+                    <field name="lease_ids" context="{'default_property_id': active_id}" mode="tree,form">
+                        <tree>
+                            <field name="name"/>
+                            <field name="tenant_id"/>
+                            <field name="start_date"/>
+                            <field name="end_date"/>
+                            <field name="monthly_rent" widget="monetary"/>
+                            <field name="currency_id" invisible="1"/>
+                            <field name="state" widget="badge"/>
+                        </tree>
+                    </field>
+                </page>
+            </xpath>
+        </field>
+    </record>
+</odoo>

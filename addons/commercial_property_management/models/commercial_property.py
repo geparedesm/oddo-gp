@@ -60,6 +60,19 @@ class CommercialProperty(models.Model):
         help="Primary photo used to identify this property in Kanban and form views.",
     )
     notes = fields.Text(string="Internal Notes")
+    lease_ids = fields.One2many("commercial.lease", "property_id", string="Lease History", copy=False)
+    current_lease_id = fields.Many2one(
+        "commercial.lease",
+        string="Current Lease",
+        compute="_compute_current_lease",
+        groups="commercial_property_management.group_property_manager",
+    )
+    current_tenant_id = fields.Many2one(
+        "res.partner",
+        string="Current Tenant",
+        compute="_compute_current_lease",
+        groups="commercial_property_management.group_property_manager",
+    )
     company_id = fields.Many2one(
         "res.company",
         required=True,
@@ -85,3 +98,10 @@ class CommercialProperty(models.Model):
                 raise ValidationError(_("The area must be greater than zero."))
             if property_record.monthly_rent < 0:
                 raise ValidationError(_("The monthly rent cannot be negative."))
+
+    @api.depends("lease_ids.state", "lease_ids.tenant_id")
+    def _compute_current_lease(self):
+        for property_record in self:
+            current_lease = property_record.lease_ids.filtered(lambda lease: lease.state == "active")[:1]
+            property_record.current_lease_id = current_lease
+            property_record.current_tenant_id = current_lease.tenant_id

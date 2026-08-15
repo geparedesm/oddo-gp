@@ -33,4 +33,11 @@
         <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
         <field name="groups" eval="[(4, ref('commercial_property_management.group_property_user'))]"/>
     </record>
+
+    <record id="commercial_lease_company_rule" model="ir.rule">
+        <field name="name">Commercial Lease multi-company access</field>
+        <field name="model_id" ref="model_commercial_lease"/>
+        <field name="domain_force">[('company_id', 'in', company_ids)]</field>
+        <field name="groups" eval="[(4, ref('commercial_property_management.group_property_manager'))]"/>
+    </record>
 </odoo>

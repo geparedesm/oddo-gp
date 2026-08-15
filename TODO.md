@@ -88,11 +88,11 @@ Properties menu.
 
 Goal: record the contract history between a property and a tenant.
 
-- [ ] Create the `commercial.lease` model.
-- [ ] Add draft, active, expired and cancelled states.
-- [ ] Link lease, property and tenant records.
-- [ ] Enforce at most one active lease per property.
-- [ ] Show lease history on the property form.
+- [x] Create the `commercial.lease` model.
+- [x] Add draft, active, expired and cancelled states.
+- [x] Link lease, property and tenant records.
+- [x] Enforce at most one active lease per property.
+- [x] Show lease history on the property form.
 
 Done when: a Manager can create and activate a lease, and the property shows
 the current tenant and previous leases.

@@ -72,6 +72,15 @@ async function openTenants(page) {
   await expect(page.getByLabel("Name", { exact: true })).toBeVisible();
 }
 
+async function openLeases(page) {
+  await page.goto("/web", { waitUntil: "domcontentloaded" });
+  await page.goto(`/web#action=${tenantActionId}&model=res.partner&view_type=list`, { waitUntil: "domcontentloaded" });
+  await page.getByRole("link", { name: "Lease Contracts", exact: true }).click();
+  await expect(page.locator(".o_list_view")).toBeVisible();
+  await page.getByRole("button", { name: "New" }).click();
+  await expect(page.getByLabel("Property", { exact: true })).toBeVisible();
+}
+
 async function createProperty(page, name) {
   await page.locator("button.o_list_button_add").click();
   await page.getByLabel("Name", { exact: true }).fill(name);
@@ -220,5 +229,58 @@ test("an administrator can create person and company tenants while a Property Us
   await page.locator(".o_main_navbar button").first().click();
   await page.getByRole("menuitem", { name: "Commercial Properties" }).first().click();
   await expect(page.getByText("Tenants", { exact: true })).toHaveCount(0);
+  await expectNoClientOrServerErrors(page, monitored);
+});
+
+test("an administrator can activate a lease and review its property history", async ({ page }) => {
+  const monitored = monitorPage(page);
+  const propertyName = `E2E Lease Property ${Date.now()}`;
+  const tenantName = `E2E Lease Tenant ${Date.now()}`;
+
+  await login(page, administrator);
+  await openProperties(page);
+  await createProperty(page, propertyName);
+
+  await openTenants(page);
+  await page.getByLabel("Name", { exact: true }).fill(tenantName);
+  await page.getByRole("button", { name: "Save manually" }).click();
+
+  await openLeases(page);
+  await page.getByRole("combobox", { name: "Property" }).fill(propertyName);
+  await page.getByRole("option", { name: propertyName, exact: true }).click();
+  await page.getByRole("combobox", { name: "Tenant" }).fill(tenantName);
+  await page.getByRole("option", { name: tenantName, exact: true }).click();
+  await page.getByLabel("Start Date", { exact: true }).fill("2026-01-01");
+  await page.getByLabel("End Date", { exact: true }).fill("2026-12-31");
+  await page.getByLabel("Monthly Rent", { exact: true }).fill("1500");
+  await page.getByRole("button", { name: "Save manually" }).click();
+  await page.getByRole("button", { name: "Activate", exact: true }).click();
+  await expect(page.getByText("Active", { exact: true })).toBeVisible();
+
+  await openProperties(page);
+  await page.getByText(propertyName, { exact: true }).click();
+  await page.getByText("Lease History", { exact: true }).click();
+  await expect(page.getByLabel("Current Tenant", { exact: true })).toHaveValue(tenantName);
+  await expect(page.getByText(tenantName, { exact: true })).toBeVisible();
+
+  await openLeases(page);
+  await page.getByRole("combobox", { name: "Property" }).fill(propertyName);
+  await page.getByRole("option", { name: propertyName, exact: true }).click();
+  await page.getByRole("combobox", { name: "Tenant" }).fill(tenantName);
+  await page.getByRole("option", { name: tenantName, exact: true }).click();
+  await page.getByLabel("Start Date", { exact: true }).fill("2027-01-01");
+  await page.getByLabel("End Date", { exact: true }).fill("2027-12-31");
+  await page.getByLabel("Monthly Rent", { exact: true }).fill("1500");
+  await page.getByRole("button", { name: "Save manually" }).click();
+  await page.getByRole("button", { name: "Activate", exact: true }).click();
+  await expect(page.getByRole("dialog")).toContainText("A property can have only one active lease.");
+  await page.getByRole("button", { name: "Ok" }).click();
+
+  await page.goto("/web/session/logout", { waitUntil: "domcontentloaded" });
+  await login(page, propertyUser);
+  await page.locator(".o_main_navbar button").first().click();
+  await page.getByRole("menuitem", { name: "Commercial Properties" }).first().click();
+  await expect(page.getByText("Lease Contracts", { exact: true })).toHaveCount(0);
+
   await expectNoClientOrServerErrors(page, monitored);
 });
