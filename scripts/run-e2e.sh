@@ -6,4 +6,4 @@ project_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${project_root}"
 
 ./scripts/prepare-e2e-user.sh
-npx playwright test
+npx playwright test "$@"

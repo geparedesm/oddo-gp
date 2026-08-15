@@ -53,6 +53,12 @@ class CommercialProperty(models.Model):
         default=lambda self: self.env.company.currency_id,
     )
     available_date = fields.Date(string="Available From")
+    image_1920 = fields.Image(
+        string="Photo",
+        max_width=1920,
+        max_height=1920,
+        help="Primary photo used to identify this property in Kanban and form views.",
+    )
     notes = fields.Text(string="Internal Notes")
     company_id = fields.Many2one(
         "res.company",

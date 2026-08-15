@@ -63,10 +63,10 @@ can only perform the intended read-only actions.
 
 Goal: make inventory status easy to understand and operate.
 
-- [ ] Add a Kanban view with status, area and monthly rent.
-- [ ] Add saved filters for Available, Rented and Maintenance.
-- [ ] Add photos and internal notes.
-- [ ] Improve field help, validation messages and form layout.
+- [x] Add a Kanban view with status, area and monthly rent.
+- [x] Add saved filters for Available, Rented and Maintenance.
+- [x] Add photos and internal notes.
+- [x] Improve field help, validation messages and form layout.
 
 Done when: a user can identify available properties from the menu, search and
 Kanban views without opening every record.

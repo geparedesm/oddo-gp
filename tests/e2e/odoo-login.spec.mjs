@@ -1,4 +1,6 @@
 import { expect, test } from "@playwright/test";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 const database = process.env.E2E_ODOO_DB;
 const administrator = {
@@ -9,6 +11,10 @@ const propertyUser = {
   username: process.env.E2E_PROPERTY_USER,
   password: process.env.E2E_PROPERTY_USER_PASSWORD
 };
+const moduleIconPath = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "../../addons/commercial_property_management/static/description/icon.png"
+);
 
 function requireCredential(value, name) {
   if (!value || value.startsWith("replace-with-")) {
@@ -63,6 +69,11 @@ async function createProperty(page, name) {
   await page.getByLabel("Monthly Rent", { exact: true }).fill("1500");
   await page.getByRole("button", { name: "Save manually" }).click();
   await expect(page.getByText(name, { exact: true })).toBeVisible();
+}
+
+async function returnToPropertyList(page) {
+  await page.getByText("Properties", { exact: true }).last().click();
+  await expect(page.locator(".o_list_view")).toBeVisible();
 }
 
 async function expectNoClientOrServerErrors(page, monitored) {
@@ -133,5 +144,43 @@ test("a Property User can read inventory but cannot create or edit it", async ({
   await page.getByText(propertyName, { exact: true }).click();
   await expect(page.getByRole("button", { name: "Save manually" })).toHaveCount(0);
 
+  await expectNoClientOrServerErrors(page, monitored);
+});
+
+test("an administrator can use Kanban, filters, photos and notes to review inventory", async ({ page }) => {
+  const monitored = monitorPage(page);
+  const propertyName = `E2E Workflow ${Date.now()}`;
+  const internalNote = "Phase 3 workflow note";
+
+  await login(page, administrator);
+  await openProperties(page);
+  await createProperty(page, propertyName);
+  await page.getByLabel("State", { exact: true }).selectOption({ label: "Maintenance" });
+  await page.getByRole("button", { name: "Save manually" }).click();
+  await page.getByText("Internal Notes", { exact: true }).click();
+  await page.getByPlaceholder("Add operational notes for the property...").fill(internalNote);
+  await page.getByRole("button", { name: "Save manually" }).click();
+  await page.getByText("Photo", { exact: true }).click();
+  await page.locator('input[type="file"]').last().setInputFiles(moduleIconPath);
+  await page.getByRole("button", { name: "Save manually" }).click();
+
+  await returnToPropertyList(page);
+  await page.getByRole("img", { name: "Remove" }).click();
+  const viewSwitcher = page.locator(".o_control_panel nav:last-child button");
+  await viewSwitcher.last().click();
+  const propertyCard = page.locator(".o_kanban_record", { hasText: propertyName });
+  await expect(propertyCard).toContainText("Maintenance");
+  await expect(propertyCard).toContainText("100");
+  await expect(propertyCard).toContainText("1,500");
+  await expect(propertyCard.locator("img")).toBeVisible();
+
+  await viewSwitcher.first().click();
+  await page.getByRole("button", { name: /Filters/ }).click();
+  await page.getByText("Maintenance", { exact: true }).last().click();
+  await expect(page.getByText(propertyName, { exact: true })).toBeVisible();
+
+  await page.getByText(propertyName, { exact: true }).click();
+  await page.getByText("Internal Notes", { exact: true }).click();
+  await expect(page.getByPlaceholder("Add operational notes for the property...")).toHaveValue(internalNote);
   await expectNoClientOrServerErrors(page, monitored);
 });

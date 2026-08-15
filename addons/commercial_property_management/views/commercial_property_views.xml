@@ -28,6 +28,7 @@
                     <field name="state" widget="statusbar" statusbar_visible="available,reserved,rented,maintenance,inactive" clickable="1"/>
                 </header>
                 <sheet>
+                    <field name="image_1920" widget="image" class="oe_avatar" options="{'preview_image': 'image_1920'}"/>
                     <div class="oe_title">
                         <label for="name"/>
                         <h1><field name="name" placeholder="e.g. Central Business Tower - Suite 301"/></h1>
@@ -54,12 +55,53 @@
                         </group>
                     </group>
                     <notebook>
+                        <page string="Photo">
+                            <group>
+                                <field name="image_1920" widget="image" class="oe_avatar" options="{'preview_image': 'image_1920'}"/>
+                                <div class="o_form_label">Upload a clear primary photo to make this property easier to recognize in Kanban.</div>
+                            </group>
+                        </page>
                         <page string="Internal Notes">
                             <field name="notes" placeholder="Add operational notes for the property..."/>
                         </page>
                     </notebook>
                 </sheet>
             </form>
+        </field>
+    </record>
+
+    <record id="view_commercial_property_kanban" model="ir.ui.view">
+        <field name="name">commercial.property.kanban</field>
+        <field name="model">commercial.property</field>
+        <field name="arch" type="xml">
+            <kanban class="o_kanban_mobile">
+                <field name="name"/>
+                <field name="code"/>
+                <field name="image_1920"/>
+                <field name="property_type"/>
+                <field name="city"/>
+                <field name="area"/>
+                <field name="monthly_rent"/>
+                <field name="currency_id"/>
+                <field name="state"/>
+                <templates>
+                    <t t-name="kanban-box">
+                        <div t-attf-class="oe_kanban_global_click o_kanban_record">
+                            <field name="image_1920" widget="image" class="o_kanban_image"/>
+                            <div class="oe_kanban_details">
+                                <strong><field name="name"/></strong>
+                                <div class="text-muted"><field name="code"/></div>
+                                <div><field name="property_type"/> - <field name="city"/></div>
+                                <div><field name="area"/> m²</div>
+                                <div><field name="monthly_rent"/> / month</div>
+                                <div class="mt-2">
+                                    <field name="state" widget="badge"/>
+                                </div>
+                            </div>
+                        </div>
+                    </t>
+                </templates>
+            </kanban>
         </field>
     </record>
 
@@ -73,10 +115,10 @@
                 <field name="street"/>
                 <field name="city"/>
                 <field name="state"/>
-                <filter name="available" string="Available" domain="[('state', '=', 'available')]"/>
-                <filter name="reserved" string="Reserved" domain="[('state', '=', 'reserved')]"/>
-                <filter name="rented" string="Rented" domain="[('state', '=', 'rented')]"/>
-                <filter name="maintenance" string="Maintenance" domain="[('state', '=', 'maintenance')]"/>
+                <filter name="available" string="Available" help="Show properties ready to lease." domain="[('state', '=', 'available')]"/>
+                <filter name="reserved" string="Reserved" help="Show properties temporarily held for a prospect." domain="[('state', '=', 'reserved')]"/>
+                <filter name="rented" string="Rented" help="Show properties currently under lease." domain="[('state', '=', 'rented')]"/>
+                <filter name="maintenance" string="Maintenance" help="Show properties not currently available due to maintenance." domain="[('state', '=', 'maintenance')]"/>
                 <filter name="inactive" string="Inactive" domain="[('state', '=', 'inactive')]"/>
                 <separator/>
                 <filter name="archived" string="Archived" domain="[('active', '=', False)]"/>
