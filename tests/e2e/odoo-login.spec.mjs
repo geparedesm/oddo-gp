@@ -25,6 +25,12 @@ function requireCredential(value, name) {
   return value;
 }
 
+function dateOffset(days) {
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
 function monitorPage(page) {
   const browserErrors = [];
   const serverErrors = [];
@@ -95,6 +101,13 @@ async function returnToPropertyList(page) {
   await expect(page.locator(".o_list_view")).toBeVisible();
 }
 
+async function showAllProperties(page) {
+  const removeFilter = page.getByRole("img", { name: "Remove" });
+  if (await removeFilter.count()) {
+    await removeFilter.first().click();
+  }
+}
+
 async function expectNoClientOrServerErrors(page, monitored) {
   await expect(page.locator(".o_error_dialog")).toHaveCount(0);
   await page.waitForTimeout(1_000);
@@ -110,7 +123,7 @@ test("an administrator can set a status and archive a commercial property", asyn
   await openProperties(page);
   await createProperty(page, propertyName);
 
-  await page.getByLabel("State", { exact: true }).selectOption({ label: "Maintenance" });
+  await page.getByLabel("State?", { exact: true }).selectOption({ label: "Maintenance" });
   await page.getByRole("button", { name: "Save manually" }).click();
   await expect(page.getByRole("radio", { name: "Maintenance" })).toBeChecked();
 
@@ -174,7 +187,7 @@ test("an administrator can use Kanban, filters, photos and notes to review inven
   await login(page, administrator);
   await openProperties(page);
   await createProperty(page, propertyName);
-  await page.getByLabel("State", { exact: true }).selectOption({ label: "Maintenance" });
+  await page.getByLabel("State?", { exact: true }).selectOption({ label: "Maintenance" });
   await page.getByRole("button", { name: "Save manually" }).click();
   await page.getByText("Internal Notes", { exact: true }).click();
   await page.getByPlaceholder("Add operational notes for the property...").fill(internalNote);
@@ -250,15 +263,17 @@ test("an administrator can activate a lease and review its property history", as
   await page.getByRole("option", { name: propertyName, exact: true }).click();
   await page.getByRole("combobox", { name: "Tenant" }).fill(tenantName);
   await page.getByRole("option", { name: tenantName, exact: true }).click();
-  await page.getByLabel("Start Date", { exact: true }).fill("2026-01-01");
-  await page.getByLabel("End Date", { exact: true }).fill("2026-12-31");
+  await page.getByLabel("Start Date", { exact: true }).fill(dateOffset(-1));
+  await page.getByLabel("End Date", { exact: true }).fill(dateOffset(30));
   await page.getByLabel("Monthly Rent", { exact: true }).fill("1500");
   await page.getByRole("button", { name: "Save manually" }).click();
   await page.getByRole("button", { name: "Activate", exact: true }).click();
   await expect(page.getByText("Active", { exact: true })).toBeVisible();
 
   await openProperties(page);
+  await showAllProperties(page);
   await page.getByText(propertyName, { exact: true }).click();
+  await expect(page.getByRole("radio", { name: "Rented" })).toBeChecked();
   await page.getByText("Lease History", { exact: true }).click();
   await expect(page.getByRole("link", { name: tenantName, exact: true })).toBeVisible();
 
@@ -267,8 +282,8 @@ test("an administrator can activate a lease and review its property history", as
   await page.getByRole("option", { name: propertyName, exact: true }).click();
   await page.getByRole("combobox", { name: "Tenant" }).fill(tenantName);
   await page.getByRole("option", { name: tenantName, exact: true }).click();
-  await page.getByLabel("Start Date", { exact: true }).fill("2027-01-01");
-  await page.getByLabel("End Date", { exact: true }).fill("2027-12-31");
+  await page.getByLabel("Start Date", { exact: true }).fill(dateOffset(31));
+  await page.getByLabel("End Date", { exact: true }).fill(dateOffset(365));
   await page.getByLabel("Monthly Rent", { exact: true }).fill("1500");
   await page.getByRole("button", { name: "Save manually" }).click();
   await page.getByRole("button", { name: "Activate", exact: true }).click();
@@ -280,6 +295,38 @@ test("an administrator can activate a lease and review its property history", as
   await page.locator(".o_main_navbar button").first().click();
   await page.getByRole("menuitem", { name: "Commercial Properties" }).first().click();
   await expect(page.getByText("Lease Contracts", { exact: true })).toHaveCount(0);
+
+  await expectNoClientOrServerErrors(page, monitored);
+});
+
+test("an administrator sees a future confirmed lease reserve its property", async ({ page }) => {
+  const monitored = monitorPage(page);
+  const propertyName = `E2E Reserved Property ${Date.now()}`;
+  const tenantName = `E2E Reserved Tenant ${Date.now()}`;
+
+  await login(page, administrator);
+  await openProperties(page);
+  await createProperty(page, propertyName);
+
+  await openTenants(page);
+  await page.getByLabel("Name", { exact: true }).fill(tenantName);
+  await page.getByRole("button", { name: "Save manually" }).click();
+
+  await openLeases(page);
+  await page.getByRole("combobox", { name: "Property" }).fill(propertyName);
+  await page.getByRole("option", { name: propertyName, exact: true }).click();
+  await page.getByRole("combobox", { name: "Tenant" }).fill(tenantName);
+  await page.getByRole("option", { name: tenantName, exact: true }).click();
+  await page.getByLabel("Start Date", { exact: true }).fill(dateOffset(14));
+  await page.getByLabel("End Date", { exact: true }).fill(dateOffset(365));
+  await page.getByLabel("Monthly Rent", { exact: true }).fill("1500");
+  await page.getByRole("button", { name: "Save manually" }).click();
+  await page.getByRole("button", { name: "Activate", exact: true }).click();
+
+  await openProperties(page);
+  await showAllProperties(page);
+  await page.getByText(propertyName, { exact: true }).click();
+  await expect(page.getByRole("radio", { name: "Reserved" })).toBeChecked();
 
   await expectNoClientOrServerErrors(page, monitored);
 });

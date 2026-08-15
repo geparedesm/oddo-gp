@@ -10,6 +10,7 @@
         "security/ir.model.access.csv",
         "data/commercial_property_sequence.xml",
         "data/commercial_lease_sequence.xml",
+        "data/commercial_lease_cron.xml",
         "data/commercial_property_actions.xml",
         "data/commercial_tenant_actions.xml",
         "data/commercial_lease_actions.xml",

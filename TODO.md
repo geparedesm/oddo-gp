@@ -101,10 +101,10 @@ the current tenant and previous leases.
 
 Goal: make property availability depend on lease data instead of manual input.
 
-- [ ] Set a property to Rented when its current lease becomes active.
-- [ ] Set a property to Reserved for a future confirmed lease.
-- [ ] Set a property to Available when the current lease ends or is cancelled.
-- [ ] Add automated tests for each state transition and invalid overlap.
+- [x] Set a property to Rented when its current lease becomes active.
+- [x] Set a property to Reserved for a future confirmed lease.
+- [x] Set a property to Available when the current lease ends or is cancelled.
+- [x] Add automated tests for each state transition and invalid overlap.
 
 Done when: changing a lease updates the property status correctly without a
 manual property edit.

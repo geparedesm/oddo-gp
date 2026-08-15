@@ -63,7 +63,10 @@ class CommercialLease(models.Model):
                 vals["name"] = self.env["ir.sequence"].next_by_code("commercial.lease") or _("New")
             if vals.get("state", "draft") == "active" and vals.get("property_id"):
                 self._ensure_property_has_no_active_lease(vals["property_id"])
-        return super().create(vals_list)
+                self._ensure_lease_has_not_ended(vals.get("end_date"))
+        leases = super().create(vals_list)
+        leases._sync_property_availability()
+        return leases
 
     def write(self, vals):
         if vals.get("state") == "active" or "property_id" in vals:
@@ -72,7 +75,19 @@ class CommercialLease(models.Model):
                 property_id = vals.get("property_id", lease.property_id.id)
                 if state == "active" and property_id:
                     self._ensure_property_has_no_active_lease(property_id, exclude_lease=lease)
-        return super().write(vals)
+                if vals.get("state") == "active":
+                    self._ensure_lease_has_not_ended(vals.get("end_date", lease.end_date))
+        properties = self.mapped("property_id")
+        result = super().write(vals)
+        if {"state", "property_id", "start_date", "end_date"}.intersection(vals):
+            (properties | self.mapped("property_id"))._sync_availability_from_leases()
+        return result
+
+    def unlink(self):
+        properties = self.mapped("property_id")
+        result = super().unlink()
+        properties._sync_availability_from_leases()
+        return result
 
     @api.onchange("property_id")
     def _onchange_property_id(self):
@@ -99,6 +114,13 @@ class CommercialLease(models.Model):
         if self.search_count(domain):
             raise ValidationError(_("A property can have only one active lease."))
 
+    def _ensure_lease_has_not_ended(self, end_date):
+        if end_date and fields.Date.to_date(end_date) < fields.Date.context_today(self):
+            raise ValidationError(_("A lease that has already ended cannot be activated."))
+
+    def _sync_property_availability(self):
+        self.mapped("property_id")._sync_availability_from_leases()
+
     def action_activate(self):
         self.filtered(lambda lease: lease.state == "draft").write({"state": "active"})
 
@@ -107,3 +129,10 @@ class CommercialLease(models.Model):
 
     def action_cancel(self):
         self.filtered(lambda lease: lease.state in ("draft", "active")).write({"state": "cancelled"})
+
+    @api.model
+    def _cron_sync_availability(self):
+        today = fields.Date.context_today(self)
+        expired_leases = self.search([("state", "=", "active"), ("end_date", "<", today)])
+        expired_leases.write({"state": "expired"})
+        self.search([("state", "=", "active")])._sync_property_availability()

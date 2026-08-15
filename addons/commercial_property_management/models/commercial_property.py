@@ -27,6 +27,7 @@ class CommercialProperty(models.Model):
         default="available",
         required=True,
         index=True,
+        help="Availability is updated automatically from confirmed lease contracts.",
     )
     property_type = fields.Selection(
         selection=[
@@ -105,3 +106,17 @@ class CommercialProperty(models.Model):
             current_lease = property_record.lease_ids.filtered(lambda lease: lease.state == "active")[:1]
             property_record.current_lease_id = current_lease
             property_record.current_tenant_id = current_lease.tenant_id
+
+    def _sync_availability_from_leases(self):
+        """Keep the inventory status aligned with the property's confirmed lease."""
+        today = fields.Date.context_today(self)
+        for property_record in self:
+            active_lease = property_record.lease_ids.filtered(lambda lease: lease.state == "active")[:1]
+            state = "available"
+            if active_lease:
+                if active_lease.start_date > today:
+                    state = "reserved"
+                elif active_lease.end_date >= today:
+                    state = "rented"
+            if property_record.state != state:
+                property_record.state = state

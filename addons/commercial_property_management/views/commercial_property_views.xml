@@ -25,7 +25,7 @@
         <field name="arch" type="xml">
             <form string="Commercial Property">
                 <header>
-                    <field name="state" widget="statusbar" statusbar_visible="available,reserved,rented,maintenance,inactive" clickable="1"/>
+                    <field name="state" widget="statusbar" statusbar_visible="available,reserved,rented,maintenance,inactive"/>
                 </header>
                 <sheet>
                     <field name="image_1920" widget="image" class="oe_avatar" options="{'preview_image': 'image_1920'}"/>

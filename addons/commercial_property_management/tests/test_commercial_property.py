@@ -1,3 +1,6 @@
+from datetime import timedelta
+
+from odoo import fields
 from odoo.exceptions import AccessError, ValidationError
 from odoo.tests.common import TransactionCase
 
@@ -5,6 +8,7 @@ from odoo.tests.common import TransactionCase
 class TestCommercialProperty(TransactionCase):
     def setUp(self):
         super().setUp()
+        self.today = fields.Date.today()
         self.manager = self.env["res.users"].create(
             {
                 "name": "Property Manager",
@@ -106,8 +110,8 @@ class TestCommercialProperty(TransactionCase):
             {
                 "property_id": property_record.id,
                 "tenant_id": tenant.id,
-                "start_date": "2026-01-01",
-                "end_date": "2026-12-31",
+                "start_date": self.today,
+                "end_date": self.today + timedelta(days=30),
                 "monthly_rent": 3000,
             }
         )
@@ -117,6 +121,7 @@ class TestCommercialProperty(TransactionCase):
 
         self.assertRegex(lease.name, r"^CL[0-9]{4}-[0-9]{4}$")
         self.assertEqual(lease.state, "active")
+        self.assertEqual(property_record.state, "rented")
         self.assertEqual(property_record.current_lease_id, lease)
         self.assertEqual(property_record.current_tenant_id, tenant)
         self.assertIn(lease, property_record.lease_ids)
@@ -132,8 +137,8 @@ class TestCommercialProperty(TransactionCase):
             {
                 "property_id": property_record.id,
                 "tenant_id": tenant.id,
-                "start_date": "2026-01-01",
-                "end_date": "2026-06-30",
+                "start_date": self.today,
+                "end_date": self.today + timedelta(days=30),
                 "monthly_rent": 2000,
                 "state": "active",
             }
@@ -142,8 +147,8 @@ class TestCommercialProperty(TransactionCase):
             {
                 "property_id": property_record.id,
                 "tenant_id": tenant.id,
-                "start_date": "2026-07-01",
-                "end_date": "2026-12-31",
+                "start_date": self.today + timedelta(days=31),
+                "end_date": self.today + timedelta(days=60),
                 "monthly_rent": 2100,
             }
         )
@@ -153,6 +158,72 @@ class TestCommercialProperty(TransactionCase):
 
         self.assertEqual(active_lease.state, "active")
         self.assertEqual(second_lease.state, "draft")
+
+    def test_future_active_lease_reserves_property_and_cancellation_releases_it(self):
+        property_record = self.env["commercial.property"].with_user(self.manager).create(
+            {"name": "Future Lease Property", "area": 100, "monthly_rent": 1800}
+        )
+        tenant = self.env["res.partner"].with_user(self.manager).create(
+            {"name": "Future Lease Tenant", "is_commercial_tenant": True}
+        )
+        lease = self.env["commercial.lease"].with_user(self.manager).create(
+            {
+                "property_id": property_record.id,
+                "tenant_id": tenant.id,
+                "start_date": self.today + timedelta(days=14),
+                "end_date": self.today + timedelta(days=365),
+                "monthly_rent": 1800,
+            }
+        )
+
+        lease.action_activate()
+        self.assertEqual(property_record.state, "reserved")
+
+        lease.action_cancel()
+        self.assertEqual(property_record.state, "available")
+
+    def test_expired_lease_releases_property_and_cron_marks_it_expired(self):
+        property_record = self.env["commercial.property"].with_user(self.manager).create(
+            {"name": "Expired Lease Property", "area": 100, "monthly_rent": 1800}
+        )
+        tenant = self.env["res.partner"].with_user(self.manager).create(
+            {"name": "Expired Lease Tenant", "is_commercial_tenant": True}
+        )
+        lease = self.env["commercial.lease"].with_user(self.manager).create(
+            {
+                "property_id": property_record.id,
+                "tenant_id": tenant.id,
+                "start_date": self.today - timedelta(days=30),
+                "end_date": self.today + timedelta(days=1),
+                "monthly_rent": 1800,
+            }
+        )
+        lease.action_activate()
+        lease.write({"end_date": self.today - timedelta(days=1)})
+
+        self.assertEqual(property_record.state, "available")
+        self.env["commercial.lease"]._cron_sync_availability()
+        self.assertEqual(lease.state, "expired")
+
+    def test_lease_cannot_be_activated_after_its_end_date(self):
+        property_record = self.env["commercial.property"].with_user(self.manager).create(
+            {"name": "Ended Lease Property", "area": 100, "monthly_rent": 1800}
+        )
+        tenant = self.env["res.partner"].with_user(self.manager).create(
+            {"name": "Ended Lease Tenant", "is_commercial_tenant": True}
+        )
+        lease = self.env["commercial.lease"].with_user(self.manager).create(
+            {
+                "property_id": property_record.id,
+                "tenant_id": tenant.id,
+                "start_date": self.today - timedelta(days=30),
+                "end_date": self.today - timedelta(days=1),
+                "monthly_rent": 1800,
+            }
+        )
+
+        with self.assertRaises(ValidationError):
+            lease.action_activate()
 
     def test_lease_rejects_invalid_dates_and_non_tenant_contacts(self):
         property_record = self.env["commercial.property"].with_user(self.manager).create(
