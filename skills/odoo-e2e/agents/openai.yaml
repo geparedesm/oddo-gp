@@ -1,0 +1,4 @@
+interface:
+  display_name: "Odoo E2E"
+  short_description: "Test Odoo workflows in the browser"
+  default_prompt: "Use $odoo-e2e to test this Odoo workflow end to end."

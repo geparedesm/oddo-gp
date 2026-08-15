@@ -1,0 +1,4 @@
+interface:
+  display_name: "Odoo Delivery Pipeline"
+  short_description: "Run the full Odoo delivery workflow"
+  default_prompt: "Use $odoo-delivery-pipeline to deliver this Odoo change through all required quality gates."

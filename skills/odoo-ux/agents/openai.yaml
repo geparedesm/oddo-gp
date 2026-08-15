@@ -1,0 +1,4 @@
+interface:
+  display_name: "Odoo UX"
+  short_description: "Improve Odoo usability and clarity"
+  default_prompt: "Use $odoo-ux to improve the user experience of this Odoo interface."

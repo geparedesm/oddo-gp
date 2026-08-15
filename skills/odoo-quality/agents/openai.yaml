@@ -1,0 +1,4 @@
+interface:
+  display_name: "Odoo Quality"
+  short_description: "Validate Odoo modules and containers"
+  default_prompt: "Use $odoo-quality to validate this Odoo change and its runtime."

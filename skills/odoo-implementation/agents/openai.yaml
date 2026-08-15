@@ -1,0 +1,4 @@
+interface:
+  display_name: "Odoo Implementation"
+  short_description: "Implement maintainable Odoo changes"
+  default_prompt: "Use $odoo-implementation to build this Odoo 16 change cleanly."

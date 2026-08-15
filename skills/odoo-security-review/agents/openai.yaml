@@ -1,0 +1,4 @@
+interface:
+  display_name: "Odoo Security Review"
+  short_description: "Review Odoo access and data safety"
+  default_prompt: "Use $odoo-security-review to audit this Odoo change for access and data risks."

@@ -5,6 +5,8 @@
 *.pyo
 *.swp
 
+.tools-venv/
+
 addons/**/__pycache__/
 addons/**/*.py[cod]
 

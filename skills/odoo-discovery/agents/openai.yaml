@@ -1,0 +1,4 @@
+interface:
+  display_name: "Odoo Discovery"
+  short_description: "Map Odoo modules and conventions"
+  default_prompt: "Use $odoo-discovery to inspect this Odoo repository before changing code."
