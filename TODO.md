@@ -11,6 +11,10 @@ compiled module or its database state.
   database or its data without a confirmed backup and explicit approval.
 - At the end of every phase: upgrade the module, inspect Odoo and Docker logs,
   run the relevant automated checks, and test the listed browser flow.
+- Before closing a phase, run `npm run test:all`. It installs the module in an
+  isolated temporary database, upgrades it in the development database, and
+  runs the browser smoke test. The temporary database is removed after success
+  and retained after a failure for diagnosis.
 - Add security and translation-ready strings with each feature, not as a final
   cleanup task.
 

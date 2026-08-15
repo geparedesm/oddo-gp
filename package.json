@@ -3,6 +3,9 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "test:all": "./scripts/test-all.sh",
+    "test:module:install": "./scripts/test-module-install.sh commercial_property_management",
+    "test:module:update": "./scripts/dev-update-module.sh commercial_property_management",
     "test:e2e": "playwright test",
     "test:e2e:debug": "playwright test --debug",
     "test:e2e:ui": "playwright test --ui",
