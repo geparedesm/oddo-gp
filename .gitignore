@@ -6,6 +6,11 @@
 *.swp
 
 .tools-venv/
+.env.e2e
+node_modules/
+playwright-report/
+test-results/
+blob-report/
 
 addons/**/__pycache__/
 addons/**/*.py[cod]
