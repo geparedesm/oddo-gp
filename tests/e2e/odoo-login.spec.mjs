@@ -75,7 +75,7 @@ async function openTenants(page) {
 async function openLeases(page) {
   await page.goto("/web", { waitUntil: "domcontentloaded" });
   await page.goto(`/web#action=${tenantActionId}&model=res.partner&view_type=list`, { waitUntil: "domcontentloaded" });
-  await page.getByRole("link", { name: "Lease Contracts", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Lease Contracts", exact: true }).click();
   await expect(page.locator(".o_list_view")).toBeVisible();
   await page.getByRole("button", { name: "New" }).click();
   await expect(page.getByLabel("Property", { exact: true })).toBeVisible();
