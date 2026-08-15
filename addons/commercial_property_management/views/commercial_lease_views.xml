@@ -23,9 +23,9 @@
         <field name="arch" type="xml">
             <form string="Lease Contract">
                 <header>
-                    <button name="action_activate" string="Activate" type="object" class="btn-primary" invisible="state != 'draft'"/>
-                    <button name="action_expire" string="Mark Expired" type="object" invisible="state != 'active'"/>
-                    <button name="action_cancel" string="Cancel" type="object" invisible="state not in ('draft', 'active')"/>
+                    <button name="action_activate" string="Activate" type="object" class="btn-primary" attrs="{'invisible': [('state', '!=', 'draft')]}"/>
+                    <button name="action_expire" string="Mark Expired" type="object" attrs="{'invisible': [('state', '!=', 'active')]}"/>
+                    <button name="action_cancel" string="Cancel" type="object" attrs="{'invisible': [('state', 'not in', ('draft', 'active'))]}"/>
                     <field name="state" widget="statusbar" statusbar_visible="draft,active,expired,cancelled"/>
                 </header>
                 <sheet>
