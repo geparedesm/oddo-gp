@@ -4,8 +4,10 @@
         <field name="name">Tenants</field>
         <field name="res_model">res.partner</field>
         <field name="view_mode">tree,form</field>
+        <field name="view_id" eval="False"/>
         <field name="domain">[('is_commercial_tenant', '=', True)]</field>
-        <field name="context">{'default_is_commercial_tenant': True, 'search_default_commercial_tenant': 1}</field>
+        <field name="context">{'default_is_commercial_tenant': True}</field>
         <field name="groups_id" eval="[(4, ref('commercial_property_management.group_property_manager'))]"/>
     </record>
+
 </odoo>

@@ -65,12 +65,11 @@ async function openProperties(page, { canCreate = true } = {}) {
 
 async function openTenants(page) {
   await page.goto("/web", { waitUntil: "domcontentloaded" });
-  await page.goto(`/web#action=${tenantActionId}`, { waitUntil: "domcontentloaded" });
+  await page.goto(`/web#action=${tenantActionId}&model=res.partner&view_type=list`, { waitUntil: "domcontentloaded" });
   await expect(page.locator(".o_searchview_input")).toBeVisible();
   await expect(page.locator(".o_list_view")).toBeVisible();
   await page.getByRole("button", { name: "New" }).click();
-  await expect(page.getByPlaceholder("e.g. Brandom Freeman")).toBeVisible();
-  await expect(page.getByText("Commercial Tenant", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("Name", { exact: true })).toBeVisible();
 }
 
 async function createProperty(page, name) {
@@ -204,19 +203,17 @@ test("an administrator can create person and company tenants while a Property Us
 
   await login(page, administrator);
   await openTenants(page);
-  await page.getByPlaceholder("e.g. Brandom Freeman").fill(personName);
-  await page.getByText("Commercial Tenant", { exact: true }).click();
-  await expect(page.getByLabel("Commercial Tenant?", { exact: true })).toBeChecked();
+  await page.getByLabel("Name", { exact: true }).fill(personName);
   await page.getByLabel("Identification Number?", { exact: true }).fill("E2E-PERSON-001");
   await page.getByRole("button", { name: "Save manually" }).click();
   await expect(page.getByText(personName, { exact: true })).toBeVisible();
+  expect(monitored.browserErrors, "Unexpected browser error after saving a person tenant").toEqual([]);
 
   await openTenants(page);
   await page.getByRole("radio", { name: "Company" }).check();
-  await page.getByRole("combobox", { name: "e.g. Lumber Inc" }).fill(companyName);
-  await page.getByText("Commercial Tenant", { exact: true }).click();
-  await expect(page.getByLabel("Commercial Tenant?", { exact: true })).toBeChecked();
+  await page.getByLabel("Name", { exact: true }).fill(companyName);
   await page.getByRole("button", { name: "Save manually" }).click();
+  expect(monitored.browserErrors, "Unexpected browser error after saving a company tenant").toEqual([]);
 
   await page.goto("/web/session/logout", { waitUntil: "domcontentloaded" });
   await login(page, propertyUser);
