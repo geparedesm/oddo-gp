@@ -75,11 +75,11 @@ Kanban views without opening every record.
 
 Goal: manage tenants using Odoo contacts.
 
-- [ ] Extend `res.partner` with tenant fields such as tenant flag,
+- [x] Extend `res.partner` with tenant fields such as tenant flag,
       identification number and internal notes.
-- [ ] Add a Tenants menu and filtered contact action.
-- [ ] Support both people and companies.
-- [ ] Restrict private tenant information to authorized roles.
+- [x] Add a Tenants menu and filtered contact action.
+- [x] Support both people and companies.
+- [x] Restrict private tenant information to authorized roles.
 
 Done when: a Manager can create a tenant and open the tenant from the Commercial
 Properties menu.

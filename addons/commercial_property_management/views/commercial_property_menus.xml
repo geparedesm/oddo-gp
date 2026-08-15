@@ -17,4 +17,13 @@
         sequence="10"
         groups="commercial_property_management.group_property_user"
     />
+
+    <menuitem
+        id="menu_commercial_tenant"
+        name="Tenants"
+        parent="menu_commercial_property_root"
+        action="commercial_property_management.action_commercial_tenant"
+        sequence="20"
+        groups="commercial_property_management.group_property_manager"
+    />
 </odoo>

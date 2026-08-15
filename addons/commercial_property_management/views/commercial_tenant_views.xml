@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_partner_form_commercial_tenant" model="ir.ui.view">
+        <field name="name">res.partner.form.commercial.tenant</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="base.view_partner_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//notebook" position="inside">
+                <page string="Commercial Tenant" groups="commercial_property_management.group_property_manager">
+                    <group>
+                        <field name="is_commercial_tenant"/>
+                        <field name="tenant_identification_number"/>
+                    </group>
+                    <group string="Private Notes">
+                        <field name="tenant_internal_notes" placeholder="Add private notes for the property management team..."/>
+                    </group>
+                </page>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_partner_search_commercial_tenant" model="ir.ui.view">
+        <field name="name">res.partner.search.commercial.tenant</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="base.view_res_partner_filter"/>
+        <field name="arch" type="xml">
+            <xpath expr="//search" position="inside">
+                <filter name="commercial_tenant" string="Commercial Tenants" domain="[('is_commercial_tenant', '=', True)]"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

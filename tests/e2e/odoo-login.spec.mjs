@@ -11,6 +11,7 @@ const propertyUser = {
   username: process.env.E2E_PROPERTY_USER,
   password: process.env.E2E_PROPERTY_USER_PASSWORD
 };
+const tenantActionId = process.env.E2E_TENANT_ACTION_ID || "162";
 const moduleIconPath = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "../../addons/commercial_property_management/static/description/icon.png"
@@ -54,12 +55,22 @@ async function login(page, credentials) {
 async function openProperties(page, { canCreate = true } = {}) {
   await expect(page.locator(".o_main_navbar")).toBeVisible();
   await page.locator(".o_main_navbar button").first().click();
-  await page.getByText("Commercial Properties", { exact: true }).click();
+  await page.getByRole("menuitem", { name: "Commercial Properties" }).first().click();
   if (canCreate) {
     await expect(page.locator("button.o_list_button_add")).toBeVisible();
   } else {
     await expect(page.getByText("Properties", { exact: true }).last()).toBeVisible();
   }
+}
+
+async function openTenants(page) {
+  await page.goto("/web", { waitUntil: "domcontentloaded" });
+  await page.goto(`/web#action=${tenantActionId}`, { waitUntil: "domcontentloaded" });
+  await expect(page.locator(".o_searchview_input")).toBeVisible();
+  await expect(page.locator(".o_list_view")).toBeVisible();
+  await page.getByRole("button", { name: "New" }).click();
+  await expect(page.getByPlaceholder("e.g. Brandom Freeman")).toBeVisible();
+  await expect(page.getByText("Commercial Tenant", { exact: true })).toBeVisible();
 }
 
 async function createProperty(page, name) {
@@ -72,7 +83,7 @@ async function createProperty(page, name) {
 }
 
 async function returnToPropertyList(page) {
-  await page.getByText("Properties", { exact: true }).last().click();
+  await openProperties(page);
   await expect(page.locator(".o_list_view")).toBeVisible();
 }
 
@@ -168,13 +179,14 @@ test("an administrator can use Kanban, filters, photos and notes to review inven
   await page.getByRole("img", { name: "Remove" }).click();
   const viewSwitcher = page.locator(".o_control_panel nav:last-child button");
   await viewSwitcher.last().click();
-  const propertyCard = page.locator(".o_kanban_record", { hasText: propertyName });
+  const propertyCard = page.getByRole("article").filter({ hasText: propertyName });
   await expect(propertyCard).toContainText("Maintenance");
   await expect(propertyCard).toContainText("100");
   await expect(propertyCard).toContainText("1,500");
   await expect(propertyCard.locator("img")).toBeVisible();
 
-  await viewSwitcher.first().click();
+  await returnToPropertyList(page);
+  await page.getByRole("img", { name: "Remove" }).click();
   await page.getByRole("button", { name: /Filters/ }).click();
   await page.getByText("Maintenance", { exact: true }).last().click();
   await expect(page.getByText(propertyName, { exact: true })).toBeVisible();
@@ -182,5 +194,34 @@ test("an administrator can use Kanban, filters, photos and notes to review inven
   await page.getByText(propertyName, { exact: true }).click();
   await page.getByText("Internal Notes", { exact: true }).click();
   await expect(page.getByPlaceholder("Add operational notes for the property...")).toHaveValue(internalNote);
+  await expectNoClientOrServerErrors(page, monitored);
+});
+
+test("an administrator can create person and company tenants while a Property User cannot access tenants", async ({ page }) => {
+  const monitored = monitorPage(page);
+  const personName = `E2E Tenant Person ${Date.now()}`;
+  const companyName = `E2E Tenant Company ${Date.now()}`;
+
+  await login(page, administrator);
+  await openTenants(page);
+  await page.getByPlaceholder("e.g. Brandom Freeman").fill(personName);
+  await page.getByText("Commercial Tenant", { exact: true }).click();
+  await expect(page.getByLabel("Commercial Tenant?", { exact: true })).toBeChecked();
+  await page.getByLabel("Identification Number?", { exact: true }).fill("E2E-PERSON-001");
+  await page.getByRole("button", { name: "Save manually" }).click();
+  await expect(page.getByText(personName, { exact: true })).toBeVisible();
+
+  await openTenants(page);
+  await page.getByRole("radio", { name: "Company" }).check();
+  await page.getByRole("combobox", { name: "e.g. Lumber Inc" }).fill(companyName);
+  await page.getByText("Commercial Tenant", { exact: true }).click();
+  await expect(page.getByLabel("Commercial Tenant?", { exact: true })).toBeChecked();
+  await page.getByRole("button", { name: "Save manually" }).click();
+
+  await page.goto("/web/session/logout", { waitUntil: "domcontentloaded" });
+  await login(page, propertyUser);
+  await page.locator(".o_main_navbar button").first().click();
+  await page.getByRole("menuitem", { name: "Commercial Properties" }).first().click();
+  await expect(page.getByText("Tenants", { exact: true })).toHaveCount(0);
   await expectNoClientOrServerErrors(page, monitored);
 });

@@ -59,3 +59,38 @@ class TestCommercialProperty(TransactionCase):
         self.assertFalse(property_record.active)
         with self.assertRaises(AccessError):
             property_record.with_user(self.user).write({"name": "Changed"})
+
+    def test_manager_can_create_person_or_company_tenants(self):
+        person_tenant = self.env["res.partner"].with_user(self.manager).create(
+            {
+                "name": "Tenant Person",
+                "is_commercial_tenant": True,
+                "tenant_identification_number": "P-100",
+            }
+        )
+        company_tenant = self.env["res.partner"].with_user(self.manager).create(
+            {
+                "name": "Tenant Company",
+                "company_type": "company",
+                "is_commercial_tenant": True,
+            }
+        )
+
+        tenants = self.env["res.partner"].with_user(self.manager).search(
+            [("is_commercial_tenant", "=", True)]
+        )
+        self.assertIn(person_tenant, tenants)
+        self.assertIn(company_tenant, tenants)
+        self.assertEqual(company_tenant.company_type, "company")
+
+    def test_property_user_cannot_read_private_tenant_identification(self):
+        tenant = self.env["res.partner"].with_user(self.manager).create(
+            {
+                "name": "Private Tenant",
+                "is_commercial_tenant": True,
+                "tenant_identification_number": "PRIVATE-100",
+            }
+        )
+
+        with self.assertRaises(AccessError):
+            tenant.with_user(self.user).read(["tenant_identification_number"])
