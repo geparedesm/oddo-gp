@@ -12,6 +12,7 @@ const propertyUser = {
   password: process.env.E2E_PROPERTY_USER_PASSWORD
 };
 const tenantActionId = process.env.E2E_TENANT_ACTION_ID || "162";
+const leaseActionId = process.env.E2E_LEASE_ACTION_ID || "163";
 const moduleIconPath = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "../../addons/commercial_property_management/static/description/icon.png"
@@ -74,8 +75,7 @@ async function openTenants(page) {
 
 async function openLeases(page) {
   await page.goto("/web", { waitUntil: "domcontentloaded" });
-  await page.goto(`/web#action=${tenantActionId}&model=res.partner&view_type=list`, { waitUntil: "domcontentloaded" });
-  await page.getByRole("menuitem", { name: "Lease Contracts", exact: true }).click();
+  await page.goto(`/web#action=${leaseActionId}&model=commercial.lease&view_type=list`, { waitUntil: "domcontentloaded" });
   await expect(page.locator(".o_list_view")).toBeVisible();
   await page.getByRole("button", { name: "New" }).click();
   await expect(page.getByLabel("Property", { exact: true })).toBeVisible();
@@ -260,8 +260,7 @@ test("an administrator can activate a lease and review its property history", as
   await openProperties(page);
   await page.getByText(propertyName, { exact: true }).click();
   await page.getByText("Lease History", { exact: true }).click();
-  await expect(page.getByLabel("Current Tenant", { exact: true })).toHaveValue(tenantName);
-  await expect(page.getByText(tenantName, { exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: tenantName, exact: true })).toBeVisible();
 
   await openLeases(page);
   await page.getByRole("combobox", { name: "Property" }).fill(propertyName);
