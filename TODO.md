@@ -49,12 +49,12 @@ and its root menu is visible to an Administrator.
 
 Goal: register and manage commercial properties.
 
-- [ ] Create the `commercial.property` model with identity, address, dimensions,
+- [x] Create the `commercial.property` model with identity, address, dimensions,
       rent, availability date, status, notes and active fields.
-- [ ] Add statuses: Available, Reserved, Rented, Maintenance and Inactive.
-- [ ] Add model access rights and record rules.
-- [ ] Add list, form and search views.
-- [ ] Add sequence-generated property codes.
+- [x] Add statuses: Available, Reserved, Rented, Maintenance and Inactive.
+- [x] Add model access rights and record rules.
+- [x] Add list, form and search views.
+- [x] Add sequence-generated property codes.
 
 Done when: a Manager can create, edit, archive and search a property; a User
 can only perform the intended read-only actions.

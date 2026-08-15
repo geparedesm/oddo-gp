@@ -66,6 +66,7 @@ docker compose exec -T odoo \
   -d "${test_db_name}" \
   -i "${module_name}" \
   --without-demo=all \
+  --no-http \
   --stop-after-init
 
 module_state="$(docker compose exec -T db \

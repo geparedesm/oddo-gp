@@ -8,7 +8,9 @@
     "data": [
         "security/security.xml",
         "security/ir.model.access.csv",
+        "data/commercial_property_sequence.xml",
         "data/commercial_property_actions.xml",
+        "views/commercial_property_views.xml",
         "views/commercial_property_menus.xml",
     ],
     "application": True,

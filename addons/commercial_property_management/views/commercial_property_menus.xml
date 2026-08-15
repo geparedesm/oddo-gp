@@ -5,7 +5,16 @@
         name="Commercial Properties"
         sequence="45"
         groups="commercial_property_management.group_property_user"
-        action="commercial_property_management.action_commercial_property_welcome"
+        action="commercial_property_management.action_commercial_property"
         web_icon="commercial_property_management,static/description/icon.png"
+    />
+
+    <menuitem
+        id="menu_commercial_property"
+        name="Properties"
+        parent="menu_commercial_property_root"
+        action="commercial_property_management.action_commercial_property"
+        sequence="10"
+        groups="commercial_property_management.group_property_user"
     />
 </odoo>

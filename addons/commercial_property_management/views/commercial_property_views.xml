@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_commercial_property_tree" model="ir.ui.view">
+        <field name="name">commercial.property.tree</field>
+        <field name="model">commercial.property</field>
+        <field name="arch" type="xml">
+            <tree decoration-success="state == 'available'" decoration-warning="state == 'reserved'" decoration-info="state == 'rented'" decoration-danger="state == 'maintenance'">
+                <field name="code"/>
+                <field name="name"/>
+                <field name="property_type"/>
+                <field name="city"/>
+                <field name="area"/>
+                <field name="monthly_rent" widget="monetary"/>
+                <field name="currency_id" invisible="1"/>
+                <field name="available_date"/>
+                <field name="state" widget="badge"/>
+                <field name="company_id" groups="base.group_multi_company"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_commercial_property_form" model="ir.ui.view">
+        <field name="name">commercial.property.form</field>
+        <field name="model">commercial.property</field>
+        <field name="arch" type="xml">
+            <form string="Commercial Property">
+                <header>
+                    <field name="state" widget="statusbar" statusbar_visible="available,reserved,rented,maintenance,inactive" clickable="1"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <label for="name"/>
+                        <h1><field name="name" placeholder="e.g. Central Business Tower - Suite 301"/></h1>
+                        <div><field name="code" readonly="1"/></div>
+                    </div>
+                    <group>
+                        <group string="Property Details">
+                            <field name="state"/>
+                            <field name="property_type"/>
+                            <field name="area"/>
+                            <field name="monthly_rent" widget="monetary" options="{'currency_field': 'currency_id'}"/>
+                            <field name="currency_id" groups="base.group_multi_currency"/>
+                            <field name="available_date"/>
+                            <field name="active"/>
+                        </group>
+                        <group string="Address">
+                            <field name="street"/>
+                            <field name="street2"/>
+                            <field name="city"/>
+                            <field name="state_id" options="{'no_open': True, 'no_create': True}"/>
+                            <field name="zip"/>
+                            <field name="country_id" options="{'no_open': True, 'no_create': True}"/>
+                            <field name="company_id" groups="base.group_multi_company"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Internal Notes">
+                            <field name="notes" placeholder="Add operational notes for the property..."/>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_commercial_property_search" model="ir.ui.view">
+        <field name="name">commercial.property.search</field>
+        <field name="model">commercial.property</field>
+        <field name="arch" type="xml">
+            <search string="Search Properties">
+                <field name="code"/>
+                <field name="name"/>
+                <field name="street"/>
+                <field name="city"/>
+                <field name="state"/>
+                <filter name="available" string="Available" domain="[('state', '=', 'available')]"/>
+                <filter name="reserved" string="Reserved" domain="[('state', '=', 'reserved')]"/>
+                <filter name="rented" string="Rented" domain="[('state', '=', 'rented')]"/>
+                <filter name="maintenance" string="Maintenance" domain="[('state', '=', 'maintenance')]"/>
+                <filter name="inactive" string="Inactive" domain="[('state', '=', 'inactive')]"/>
+                <separator/>
+                <filter name="archived" string="Archived" domain="[('active', '=', False)]"/>
+                <group expand="0" string="Group By">
+                    <filter name="group_by_state" string="Status" context="{'group_by': 'state'}"/>
+                    <filter name="group_by_type" string="Property Type" context="{'group_by': 'property_type'}"/>
+                    <filter name="group_by_city" string="City" context="{'group_by': 'city'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+</odoo>

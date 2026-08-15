@@ -8,6 +8,7 @@
     <record id="group_property_user" model="res.groups">
         <field name="name">Property User</field>
         <field name="category_id" ref="module_category_commercial_property_management"/>
+        <field name="implied_ids" eval="[(4, ref('base.group_user'))]"/>
     </record>
 
     <record id="group_property_manager" model="res.groups">
@@ -24,5 +25,12 @@
 
     <record id="base.group_system" model="res.groups">
         <field name="implied_ids" eval="[(4, ref('commercial_property_management.group_property_administrator'))]"/>
+    </record>
+
+    <record id="commercial_property_company_rule" model="ir.rule">
+        <field name="name">Commercial Property multi-company access</field>
+        <field name="model_id" ref="model_commercial_property"/>
+        <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+        <field name="groups" eval="[(4, ref('commercial_property_management.group_property_user'))]"/>
     </record>
 </odoo>

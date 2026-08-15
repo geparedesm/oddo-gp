@@ -2,8 +2,11 @@
 
 set -euo pipefail
 
-if [[ $# -lt 1 ]]; then
-  echo "Uso: scripts/dev-update-module.sh <module_name>"
+project_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "${project_root}"
+
+if [[ $# -ne 1 ]]; then
+  echo "Usage: scripts/test-module-logic.sh <module_name>"
   exit 1
 fi
 
@@ -17,6 +20,8 @@ docker compose exec -T odoo \
   odoo -c /etc/odoo/odoo.conf \
   -d "${ODOO_DB_NAME}" \
   -u "${module_name}" \
+  --test-enable \
+  --test-tags "/${module_name}" \
   --no-http \
   --stop-after-init
 

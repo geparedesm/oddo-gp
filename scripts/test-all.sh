@@ -8,5 +8,5 @@ cd "${project_root}"
 module_name="${1:-commercial_property_management}"
 
 ./scripts/test-module-install.sh "${module_name}"
-./scripts/dev-update-module.sh "${module_name}"
+./scripts/test-module-logic.sh "${module_name}"
 npm run test:e2e
