@@ -1,9 +1,12 @@
+from datetime import timedelta
+
 from odoo import _, api, fields, models
 from odoo.exceptions import ValidationError
 
 
 class CommercialLease(models.Model):
     _name = "commercial.lease"
+    _inherit = ["mail.thread", "mail.activity.mixin"]
     _description = "Commercial Lease"
     _order = "start_date desc, id desc"
 
@@ -43,6 +46,11 @@ class CommercialLease(models.Model):
         default="draft",
         required=True,
         index=True,
+    )
+    days_to_expiry = fields.Integer(
+        string="Days to Expiry",
+        compute="_compute_days_to_expiry",
+        help="Days remaining until an active lease ends.",
     )
     company_id = fields.Many2one(related="property_id.company_id", store=True, readonly=True, index=True)
 
@@ -95,6 +103,15 @@ class CommercialLease(models.Model):
             if lease.property_id:
                 lease.monthly_rent = lease.property_id.monthly_rent
 
+    @api.depends("state", "end_date")
+    def _compute_days_to_expiry(self):
+        today = fields.Date.context_today(self)
+        for lease in self:
+            if lease.state == "active" and lease.end_date:
+                lease.days_to_expiry = (lease.end_date - today).days
+            else:
+                lease.days_to_expiry = 0
+
     @api.constrains("start_date", "end_date")
     def _check_lease_dates(self):
         for lease in self:
@@ -130,9 +147,54 @@ class CommercialLease(models.Model):
     def action_cancel(self):
         self.filtered(lambda lease: lease.state in ("draft", "active")).write({"state": "cancelled"})
 
+    def _get_expiry_activity_user(self):
+        self.ensure_one()
+        manager_group = self.env.ref("commercial_property_management.group_property_manager")
+        managers = manager_group.users.filtered(lambda user: user.active and not user.share)
+        return managers[:1]
+
+    @api.model
+    def _cron_create_expiry_activities(self, today=None):
+        reminder_days = (90, 30, 7)
+        current_date = fields.Date.to_date(today or fields.Date.context_today(self))
+        activity_type = self.env.ref("mail.mail_activity_data_todo")
+        activity_model = self.env["mail.activity"].sudo()
+
+        for days in reminder_days:
+            reminder_date = current_date + timedelta(days=days)
+            leases = self.search(
+                [
+                    ("state", "=", "active"),
+                    ("end_date", "=", reminder_date),
+                ]
+            )
+            for lease in leases:
+                user = lease._get_expiry_activity_user()
+                if not user:
+                    continue
+                summary = _("Lease expires in %s days") % days
+                existing_activity = activity_model.search(
+                    [
+                        ("res_model", "=", lease._name),
+                        ("res_id", "=", lease.id),
+                        ("activity_type_id", "=", activity_type.id),
+                        ("summary", "=", summary),
+                    ],
+                    limit=1,
+                )
+                if not existing_activity:
+                    lease.activity_schedule(
+                        "mail.mail_activity_data_todo",
+                        user_id=user.id,
+                        date_deadline=lease.end_date,
+                        summary=summary,
+                        note=_("Review the lease renewal or closure before its end date."),
+                    )
+
     @api.model
     def _cron_sync_availability(self):
         today = fields.Date.context_today(self)
         expired_leases = self.search([("state", "=", "active"), ("end_date", "<", today)])
         expired_leases.write({"state": "expired"})
         self.search([("state", "=", "active")])._sync_property_availability()
+        self._cron_create_expiry_activities(today=today)

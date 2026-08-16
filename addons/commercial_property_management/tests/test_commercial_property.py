@@ -256,3 +256,56 @@ class TestCommercialProperty(TransactionCase):
     def test_property_user_cannot_access_leases(self):
         with self.assertRaises(AccessError):
             self.env["commercial.lease"].with_user(self.user).search([])
+
+    def test_expiry_cron_creates_one_activity_at_each_reminder_threshold(self):
+        tenant = self.env["res.partner"].with_user(self.manager).create(
+            {"name": "Expiry Reminder Tenant", "is_commercial_tenant": True}
+        )
+        leases = self.env["commercial.lease"]
+
+        for days in (90, 30, 7):
+            property_record = self.env["commercial.property"].with_user(self.manager).create(
+                {
+                    "name": "Expiry Reminder Property %s" % days,
+                    "area": 100,
+                    "monthly_rent": 1500,
+                }
+            )
+            lease = self.env["commercial.lease"].with_user(self.manager).create(
+                {
+                    "property_id": property_record.id,
+                    "tenant_id": tenant.id,
+                    "start_date": self.today,
+                    "end_date": self.today + timedelta(days=days),
+                    "monthly_rent": 1500,
+                }
+            )
+            lease.action_activate()
+            self.assertEqual(lease.days_to_expiry, days)
+            leases |= lease
+
+        self.env["commercial.lease"]._cron_create_expiry_activities(today=self.today)
+        activities = self.env["mail.activity"].sudo().search(
+            [
+                ("res_model", "=", "commercial.lease"),
+                ("res_id", "in", leases.ids),
+            ]
+        )
+
+        self.assertEqual(len(activities), 3)
+        self.assertEqual(
+            set(activities.mapped("summary")),
+            {"Lease expires in 90 days", "Lease expires in 30 days", "Lease expires in 7 days"},
+        )
+        self.assertEqual(set(activities.mapped("date_deadline")), set(leases.mapped("end_date")))
+
+        self.env["commercial.lease"]._cron_create_expiry_activities(today=self.today)
+        self.assertEqual(
+            self.env["mail.activity"].sudo().search_count(
+                [
+                    ("res_model", "=", "commercial.lease"),
+                    ("res_id", "in", leases.ids),
+                ]
+            ),
+            3,
+        )

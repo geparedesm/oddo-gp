@@ -13,6 +13,10 @@ const propertyUser = {
 };
 const tenantActionId = requireCredential(process.env.E2E_TENANT_ACTION_ID, "E2E tenant action ID");
 const leaseActionId = requireCredential(process.env.E2E_LEASE_ACTION_ID, "E2E lease action ID");
+const leaseDashboardActionId = requireCredential(
+  process.env.E2E_LEASE_DASHBOARD_ACTION_ID,
+  "E2E lease dashboard action ID"
+);
 const moduleIconPath = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "../../addons/commercial_property_management/static/description/icon.png"
@@ -86,6 +90,28 @@ async function openLeases(page) {
   await page.getByRole("button", { name: "New" }).click();
   await expect(page.getByLabel("Property", { exact: true })).toBeVisible();
 }
+
+async function openLeaseOperationsDashboard(page) {
+  await page.goto("/web", { waitUntil: "domcontentloaded" });
+  await page.goto(
+    `/web#action=${leaseDashboardActionId}&model=commercial.lease&view_type=pivot`,
+    { waitUntil: "domcontentloaded" }
+  );
+  await expect(page.locator("div.o_pivot")).toBeVisible();
+}
+
+test("an administrator can review lease operations metrics and expiry filters", async ({ page }) => {
+  const monitored = monitorPage(page);
+
+  await login(page, administrator);
+  await openLeaseOperationsDashboard(page);
+  await expect(page.getByText("Lease Operations Dashboard", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: /Filters/ }).click();
+  await expect(page.getByText("Expiring in 30 Days", { exact: true })).toBeVisible();
+  await expect(page.getByText("Expiring in 7 Days", { exact: true })).toBeVisible();
+
+  await expectNoClientOrServerErrors(page, monitored);
+});
 
 async function createProperty(page, name) {
   await page.locator("button.o_list_button_add").click();

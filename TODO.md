@@ -139,11 +139,11 @@ information from Odoo.
 
 Goal: provide operational visibility after the core workflow is stable.
 
-- [ ] Add dashboard metrics and upcoming-expiry indicators.
-- [ ] Add lease-expiry activities at 90, 30 and 7 days.
-- [ ] Complete Spanish and English translations.
-- [ ] Run module-upgrade, security review, UX review and Playwright E2E tests.
-- [ ] Document the administrator and developer workflows.
+- [x] Add dashboard metrics and upcoming-expiry indicators.
+- [x] Add lease-expiry activities at 90, 30 and 7 days.
+- [x] Complete Spanish and English translations.
+- [x] Run module-upgrade, security review, UX review and Playwright E2E tests.
+- [x] Document the administrator and developer workflows.
 
 Done when: all targeted checks pass and the application can be handed to an
 administrator with a clear setup and usage guide.

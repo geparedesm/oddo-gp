@@ -10,6 +10,7 @@
                 <field name="tenant_id"/>
                 <field name="start_date"/>
                 <field name="end_date"/>
+                <field name="days_to_expiry" optional="show"/>
                 <field name="monthly_rent" widget="monetary"/>
                 <field name="currency_id" invisible="1"/>
                 <field name="state" widget="badge"/>
@@ -43,9 +44,15 @@
                         <group string="Term">
                             <field name="start_date"/>
                             <field name="end_date"/>
+                            <field name="days_to_expiry" readonly="1" attrs="{'invisible': [('state', '!=', 'active')]}"/>
                             <field name="company_id" groups="base.group_multi_company"/>
                         </group>
                     </group>
+                    <div class="oe_chatter">
+                        <field name="message_follower_ids" widget="mail_followers"/>
+                        <field name="activity_ids" widget="mail_activity"/>
+                        <field name="message_ids" widget="mail_thread"/>
+                    </div>
                 </sheet>
             </form>
         </field>
@@ -63,7 +70,21 @@
                 <filter name="active" string="Active" domain="[('state', '=', 'active')]"/>
                 <filter name="expired" string="Expired" domain="[('state', '=', 'expired')]"/>
                 <filter name="cancelled" string="Cancelled" domain="[('state', '=', 'cancelled')]"/>
+                <separator/>
+                <filter name="expiring_soon" string="Expiring in 30 Days" domain="[('state', '=', 'active'), ('end_date', '&gt;=', context_today()), ('end_date', '&lt;=', (context_today() + relativedelta(days=30)).strftime('%Y-%m-%d'))]"/>
+                <filter name="expiring_this_week" string="Expiring in 7 Days" domain="[('state', '=', 'active'), ('end_date', '&gt;=', context_today()), ('end_date', '&lt;=', (context_today() + relativedelta(days=7)).strftime('%Y-%m-%d'))]"/>
             </search>
+        </field>
+    </record>
+
+    <record id="view_commercial_lease_pivot" model="ir.ui.view">
+        <field name="name">commercial.lease.pivot</field>
+        <field name="model">commercial.lease</field>
+        <field name="arch" type="xml">
+            <pivot string="Lease Operations Dashboard">
+                <field name="state" type="row"/>
+                <field name="monthly_rent" type="measure"/>
+            </pivot>
         </field>
     </record>
 

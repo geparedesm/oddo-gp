@@ -35,4 +35,13 @@
         sequence="30"
         groups="commercial_property_management.group_property_manager"
     />
+
+    <menuitem
+        id="menu_commercial_lease_operations_dashboard"
+        name="Operations Dashboard"
+        parent="menu_commercial_property_root"
+        action="commercial_property_management.action_commercial_lease_operations_dashboard"
+        sequence="40"
+        groups="commercial_property_management.group_property_manager"
+    />
 </odoo>
