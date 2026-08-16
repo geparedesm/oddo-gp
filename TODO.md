@@ -147,3 +147,109 @@ Goal: provide operational visibility after the core workflow is stable.
 
 Done when: all targeted checks pass and the application can be handed to an
 administrator with a clear setup and usage guide.
+
+## Phase 10 - Multi-unit Property Structure
+
+Goal: represent one building with multiple independently rentable commercial units.
+
+- [ ] Add a building/property parent and commercial-unit child structure.
+- [ ] Move unit-level availability, rent, photos, public details and lease history
+      to each commercial unit.
+- [ ] Preserve existing one-property/one-unit records through an explicit
+      migration path.
+- [ ] Verify that leasing one unit never changes the availability of other units
+      in the same building.
+
+Done when: Managers can lease and publish individual units within one building.
+
+## Phase 11 - WhatsApp Lead Intake and Visit Requests
+
+Goal: turn an enquiry from a public sign into a consented, manager-reviewed lead.
+
+- [ ] Add a manager-only lead pipeline with consent, contact details, desired
+      start date, visit request and follow-up activities.
+- [ ] Let Hermes identify a building/unit through street, zone, public photos and
+      human-facing descriptions, without requiring QR codes, live location or
+      technical codes.
+- [ ] Add a narrow authenticated lead-submission API and MCP tool.
+- [ ] Ensure chat never creates a tenant, reservation or lease automatically.
+
+Done when: A WhatsApp enquiry creates a safe lead and visit request for the
+correct commercial unit.
+
+## Phase 12 - Qualification, Visits and Controlled Reservations
+
+Goal: convert reviewed leads into appointments and manager-approved reservations.
+
+- [ ] Add visit requests, scheduling, assignment, confirmation and cancellation.
+- [ ] Add time-limited reservation requests with manager approval and expiry.
+- [ ] Prevent conflicts with active leases, future leases and other reservations.
+- [ ] Add activities for visit follow-up and reservation expiry.
+
+Done when: A manager can approve a non-conflicting, time-limited reservation
+without granting it automatically through WhatsApp.
+
+## Phase 13 - Applications, Documents and Contract Handoff
+
+Goal: prepare a reviewed prospect for a manager-controlled commercial lease.
+
+- [ ] Add application checklists and approval states for people and companies.
+- [ ] Use a secure authenticated upload flow for documents; never collect them in
+      WhatsApp.
+- [ ] Generate non-binding proposals from manager-approved terms.
+- [ ] Create only draft leases from approved applications; keep final activation
+      under manager control.
+
+Done when: Every active lease is traceable to an approved application and manual
+manager decision.
+
+## Phase 14 - Acquisition Analytics and Operational Hardening
+
+Goal: measure conversion while protecting the public automation channel.
+
+- [ ] Measure enquiry, response, visit, reservation, contract and lost-reason
+      conversion by building and unit.
+- [ ] Add rate limits, idempotency, abuse detection and retention/anonymization
+      for public leads.
+- [ ] Restrict WhatsApp automation to safe lead-intake capabilities.
+- [ ] Add alerts for API, MCP and queue failures.
+
+Done when: Managers can measure demand and the public channel is monitored and
+privacy-compliant.
+
+## Phase 15 - Property Operations and Maintenance
+
+Goal: manage inspections, incidents, repairs and handover work per unit.
+
+- [ ] Add maintenance tickets, categories, assignment, costs and audit history.
+- [ ] Add delivery/return checklists with manager-only evidence and photos.
+- [ ] Show operational status and maintenance history on buildings and units.
+
+Done when: Managers can manage maintenance without exposing operational data in
+public listings or WhatsApp.
+
+## Phase 16 - Financial Operations and Portfolio Performance
+
+Goal: monitor commercial terms, collection status, vacancy and unit performance.
+
+- [ ] Add manager-controlled deposits, rent adjustments, penalties and renewals.
+- [ ] Evaluate Odoo Accounting integration for invoices, payments and overdue
+      reminders.
+- [ ] Add occupancy, vacancy, income, delinquency and renewal reporting.
+
+Done when: Authorized managers can identify vacant, overdue and high-performing
+units from Odoo.
+
+## Phase 17 - Public Listing Quality and Controlled Distribution
+
+Goal: improve demand generation while preserving the public/private data boundary.
+
+- [ ] Add public-listing quality checks for unit photos, name, area, rent,
+      features and non-sensitive location descriptions.
+- [ ] Add manager approval, publication expiry and unpublishing reasons.
+- [ ] Evaluate controlled distribution to a website, property portals and social
+      campaigns.
+- [ ] Attribute enquiries and conversions to buildings, units and campaigns.
+
+Done when: Only approved available units are distributed publicly and managers
+can measure their conversion performance.
