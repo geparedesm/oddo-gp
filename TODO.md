@@ -127,10 +127,10 @@ unauthorized clients and private fields are rejected.
 
 Goal: connect the stable public API to conversational property search.
 
-- [ ] Define `search_properties`, `get_property` and
+- [x] Define `search_properties`, `get_property` and
       `get_available_properties` tools for Hermes.
-- [ ] Convert conversational budget and area requests into API filters.
-- [ ] Test successful, empty-result and invalid-request conversations.
+- [x] Convert conversational budget and area requests into API filters.
+- [x] Test successful, empty-result and invalid-request conversations.
 
 Done when: a WhatsApp conversation can return only the intended public property
 information from Odoo.
