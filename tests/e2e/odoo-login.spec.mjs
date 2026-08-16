@@ -18,6 +18,9 @@ const leaseDashboardActionId = requireCredential(
   "E2E lease dashboard action ID"
 );
 const enquiryActionId = requireCredential(process.env.E2E_ENQUIRY_ACTION_ID, "E2E enquiry action ID");
+const visitActionId = requireCredential(process.env.E2E_VISIT_ACTION_ID, "E2E visit action ID");
+const reservationActionId = requireCredential(process.env.E2E_RESERVATION_ACTION_ID, "E2E reservation action ID");
+const whatsappPolicyActionId = requireCredential(process.env.E2E_WHATSAPP_POLICY_ACTION_ID, "E2E WhatsApp policy action ID");
 const moduleIconPath = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "../../addons/commercial_property_management/static/description/icon.png"
@@ -106,6 +109,12 @@ async function openEnquiries(page) {
   await expect(page.locator(".o_list_view")).toBeVisible();
 }
 
+async function openOperationalAction(page, actionId, model) {
+  await page.goto("/web", { waitUntil: "domcontentloaded" });
+  await page.goto(`/web#action=${actionId}&model=${model}&view_type=list`, { waitUntil: "domcontentloaded" });
+  await expect(page.locator(".o_list_view")).toBeVisible();
+}
+
 test("an administrator can review lease operations metrics and expiry filters", async ({ page }) => {
   const monitored = monitorPage(page);
 
@@ -135,9 +144,8 @@ test("an administrator can access enquiries while a Property User cannot", async
 test("an administrator can review the Ecuador WhatsApp policy while a Property User cannot", async ({ page }) => {
   const monitored = monitorPage(page);
   await login(page, administrator);
-  await page.locator(".o_main_navbar button").first().click();
-  await page.getByRole("menuitem", { name: "Commercial Properties" }).first().click();
-  await page.getByText("WhatsApp Policy", { exact: true }).click();
+  await page.goto("/web", { waitUntil: "domcontentloaded" });
+  await page.goto(`/web#action=${whatsappPolicyActionId}&model=res.config.settings&view_type=form`, { waitUntil: "domcontentloaded" });
   await expect(page.getByText("WhatsApp enquiry policy — Ecuador", { exact: true })).toBeVisible();
   await expect(page.getByText("Enable only after approving the policy below.", { exact: true })).toBeVisible();
   await page.goto("/web/session/logout", { waitUntil: "domcontentloaded" });
@@ -396,5 +404,21 @@ test("an administrator sees a future confirmed lease reserve its property", asyn
   await page.getByRole("button", { name: "Save manually" }).click();
   await page.getByRole("button", { name: "Activate", exact: true }).click();
 
+  await expectNoClientOrServerErrors(page, monitored);
+});
+
+test("an administrator can access phase 12 visits and reservations while a Property User cannot", async ({ page }) => {
+  const monitored = monitorPage(page);
+  await login(page, administrator);
+  await openOperationalAction(page, visitActionId, "commercial.property.visit");
+  await expect(page.getByRole("button", { name: "New" })).toBeVisible();
+  await openOperationalAction(page, reservationActionId, "commercial.property.reservation");
+  await expect(page.getByRole("button", { name: "New" })).toBeVisible();
+  await page.goto("/web/session/logout", { waitUntil: "domcontentloaded" });
+  await login(page, propertyUser);
+  await page.locator(".o_main_navbar button").first().click();
+  await page.getByRole("menuitem", { name: "Commercial Properties" }).first().click();
+  await expect(page.getByText("Visits", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("Reservations", { exact: true })).toHaveCount(0);
   await expectNoClientOrServerErrors(page, monitored);
 });

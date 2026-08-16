@@ -18,6 +18,8 @@ class CommercialPropertyLead(models.Model):
     unit_id = fields.Many2one("commercial.property.unit", string="Commercial Unit", required=True, ondelete="restrict", index=True, tracking=True)
     property_id = fields.Many2one(related="unit_id.property_id", string="Property", store=True, readonly=True, index=True)
     tenant_id = fields.Many2one("res.partner", string="Tenant Draft", readonly=True, copy=False)
+    visit_ids = fields.One2many("commercial.property.visit", "lead_id", string="Visits", copy=False)
+    reservation_ids = fields.One2many("commercial.property.reservation", "lead_id", string="Reservations", copy=False)
     consent_at = fields.Datetime(string="Consent Given At", required=True, readonly=True, copy=False)
     consent_policy_version = fields.Char(string="Consent Policy Version", readonly=True, copy=False)
     consent_purpose = fields.Char(string="Consent Purpose", readonly=True, copy=False)
@@ -101,8 +103,17 @@ class CommercialPropertyLead(models.Model):
         self.write({"state": "qualified"})
 
     def action_schedule_visit(self):
+        self.ensure_one()
         self._check_transition("visit_scheduled")
+        visit = self.env["commercial.property.visit"].create({"lead_id": self.id, "assigned_user_id": self.assigned_user_id.id or self.env.user.id})
         self.write({"state": "visit_scheduled"})
+        return {"type": "ir.actions.act_window", "name": _("Visit Request"), "res_model": "commercial.property.visit", "res_id": visit.id, "view_mode": "form", "target": "current"}
+
+    def action_create_reservation_request(self):
+        self.ensure_one()
+        if self.state not in ("qualified", "visit_scheduled", "under_review"):
+            raise ValidationError(_("Only qualified or reviewed enquiries can request a reservation."))
+        return {"type": "ir.actions.act_window", "name": _("Reservation Request"), "res_model": "commercial.property.reservation", "view_mode": "form", "target": "current", "context": {"default_lead_id": self.id}}
 
     def action_start_review(self):
         self._check_transition("under_review")

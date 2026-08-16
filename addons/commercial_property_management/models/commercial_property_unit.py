@@ -35,6 +35,7 @@ class CommercialPropertyUnit(models.Model):
     public_feature_ids = fields.Many2many("commercial.property.feature", string="Public Features")
     is_published = fields.Boolean(string="Published", help="Make this available unit visible through the Hermes public API.")
     lease_ids = fields.One2many("commercial.lease", "unit_id", string="Lease History", copy=False)
+    reservation_ids = fields.One2many("commercial.property.reservation", "unit_id", string="Reservations", copy=False)
     current_lease_id = fields.Many2one("commercial.lease", compute="_compute_current_lease", groups="commercial_property_management.group_property_manager")
     current_tenant_id = fields.Many2one("res.partner", compute="_compute_current_lease", groups="commercial_property_management.group_property_manager")
     company_id = fields.Many2one(related="property_id.company_id", store=True, readonly=True, index=True)
@@ -80,6 +81,8 @@ class CommercialPropertyUnit(models.Model):
             state = "available"
             if active_lease:
                 state = "reserved" if active_lease.start_date > today else "rented"
+            elif unit.reservation_ids.filtered(lambda reservation: reservation.state == "approved" and reservation.end_date >= today):
+                state = "reserved"
             if unit.state != state:
                 unit.state = state
             if unit.is_default and unit.property_id.state != state:

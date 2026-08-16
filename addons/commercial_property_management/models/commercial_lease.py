@@ -36,6 +36,7 @@ class CommercialLease(models.Model):
                 vals["name"] = self.env["ir.sequence"].next_by_code("commercial.lease") or _("New")
             if vals.get("state", "draft") == "active" and vals.get("unit_id"):
                 self._ensure_unit_has_no_active_lease(vals["unit_id"])
+                self._ensure_unit_has_no_approved_reservation(vals["unit_id"], vals.get("start_date"), vals.get("end_date"))
                 self._ensure_lease_has_not_ended(vals.get("end_date"))
         leases = super().create(vals_list)
         leases._sync_unit_availability()
@@ -47,6 +48,7 @@ class CommercialLease(models.Model):
                 unit_id = vals.get("unit_id", lease.unit_id.id)
                 if vals.get("state", lease.state) == "active" and unit_id:
                     self._ensure_unit_has_no_active_lease(unit_id, exclude_lease=lease)
+                    self._ensure_unit_has_no_approved_reservation(unit_id, vals.get("start_date", lease.start_date), vals.get("end_date", lease.end_date))
                 if vals.get("state") == "active":
                     self._ensure_lease_has_not_ended(vals.get("end_date", lease.end_date))
         units = self.mapped("unit_id")
@@ -104,6 +106,10 @@ class CommercialLease(models.Model):
     def _ensure_lease_has_not_ended(self, end_date):
         if end_date and fields.Date.to_date(end_date) < fields.Date.context_today(self):
             raise ValidationError(_("A lease that has already ended cannot be activated."))
+
+    def _ensure_unit_has_no_approved_reservation(self, unit_id, start_date, end_date):
+        if self.env["commercial.property.reservation"].search_count([("unit_id", "=", unit_id), ("state", "=", "approved"), ("start_date", "<=", end_date), ("end_date", ">=", start_date)]):
+            raise ValidationError(_("This lease conflicts with an approved reservation for the commercial unit."))
 
     def _sync_unit_availability(self):
         self.mapped("unit_id")._sync_availability_from_leases()

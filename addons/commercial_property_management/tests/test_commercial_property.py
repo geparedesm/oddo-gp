@@ -339,6 +339,57 @@ class TestCommercialProperty(TransactionCase):
         self.assertFalse(lead.phone or lead.email or lead.company_name or lead.message or lead.visit_requested_at)
         self.assertTrue(lead.anonymized_at)
 
+    def test_manager_schedules_confirms_and_completes_a_visit(self):
+        building = self.env["commercial.property"].with_user(self.manager).create(
+            {"name": "Visit Building", "area": 100, "monthly_rent": 1500, "public_name": "Visit unit", "public_description": "Published", "public_monthly_rent": 1500, "is_published": True}
+        )
+        lead = self.env["commercial.property.lead"].with_user(self.manager).create(
+            {"name": "Visit Prospect", "phone": "+155****0300", "unit_id": building.default_unit_id.id, "consent_at": fields.Datetime.now(), "source": "whatsapp"}
+        )
+        lead.action_qualify()
+        action = lead.action_schedule_visit()
+        visit = self.env["commercial.property.visit"].browse(action["res_id"])
+        visit.write({"scheduled_at": fields.Datetime.add(fields.Datetime.now(), days=1)})
+        visit.action_schedule()
+        visit.action_confirm()
+        self.assertEqual(visit.state, "confirmed")
+        self.assertTrue(visit.activity_ids)
+        visit.action_complete()
+        self.assertEqual(visit.state, "completed")
+
+    def test_manager_approves_non_conflicting_reservation_and_expiry_releases_unit(self):
+        building = self.env["commercial.property"].with_user(self.manager).create(
+            {"name": "Reservation Building", "area": 100, "monthly_rent": 1500, "public_name": "Reservation unit", "public_description": "Published", "public_monthly_rent": 1500, "is_published": True}
+        )
+        unit = building.default_unit_id
+        lead = self.env["commercial.property.lead"].with_user(self.manager).create(
+            {"name": "Reservation Prospect", "phone": "+155****0400", "unit_id": unit.id, "consent_at": fields.Datetime.now(), "source": "whatsapp"}
+        )
+        lead.action_qualify()
+        reservation = self.env["commercial.property.reservation"].with_user(self.manager).create(
+            {"lead_id": lead.id, "start_date": self.today + timedelta(days=10), "end_date": self.today + timedelta(days=20), "expires_at": fields.Datetime.add(fields.Datetime.now(), days=2)}
+        )
+        reservation.action_approve()
+        self.assertEqual(reservation.state, "approved")
+        self.assertEqual(unit.state, "reserved")
+        self.assertTrue(reservation.activity_ids)
+        conflicting = self.env["commercial.property.reservation"].with_user(self.manager).create(
+            {"lead_id": lead.id, "start_date": self.today + timedelta(days=15), "end_date": self.today + timedelta(days=25), "expires_at": fields.Datetime.add(fields.Datetime.now(), days=2)}
+        )
+        with self.assertRaises(ValidationError):
+            conflicting.action_approve()
+        tenant = self.env["res.partner"].with_user(self.manager).create({"name": "Reservation Tenant", "is_commercial_tenant": True})
+        lease = self.env["commercial.lease"].with_user(self.manager).create(
+            {"property_id": building.id, "unit_id": unit.id, "tenant_id": tenant.id, "start_date": self.today + timedelta(days=10), "end_date": self.today + timedelta(days=30), "monthly_rent": 1500}
+        )
+        with self.assertRaises(ValidationError):
+            lease.action_activate()
+        self.env.cr.execute("UPDATE commercial_property_reservation SET expires_at = %s WHERE id = %s", (fields.Datetime.subtract(fields.Datetime.now(), hours=1), reservation.id))
+        reservation.invalidate_recordset(["expires_at"])
+        self.env["commercial.property.reservation"]._cron_expire_reservations()
+        self.assertEqual(reservation.state, "expired")
+        self.assertEqual(unit.state, "available")
+
     def test_default_unit_receives_legacy_property_public_listing_updates(self):
         building = self.env["commercial.property"].with_user(self.manager).create(
             {"name": "Legacy Public Listing Building", "area": 100, "monthly_rent": 1500}

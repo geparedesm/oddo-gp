@@ -181,10 +181,10 @@ correct commercial unit.
 
 Goal: convert reviewed leads into appointments and manager-approved reservations.
 
-- [ ] Add visit requests, scheduling, assignment, confirmation and cancellation.
-- [ ] Add time-limited reservation requests with manager approval and expiry.
-- [ ] Prevent conflicts with active leases, future leases and other reservations.
-- [ ] Add activities for visit follow-up and reservation expiry.
+- [x] Add visit requests, scheduling, assignment, confirmation and cancellation.
+- [x] Add time-limited reservation requests with manager approval and expiry.
+- [x] Prevent conflicts with active leases, future leases and other reservations.
+- [x] Add activities for visit follow-up and reservation expiry.
 
 Done when: A manager can approve a non-conflicting, time-limited reservation
 without granting it automatically through WhatsApp.

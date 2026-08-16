@@ -20,4 +20,14 @@
         <field name="numbercall">-1</field>
         <field name="doall" eval="False"/>
     </record>
+    <record id="ir_cron_expire_commercial_property_reservations" model="ir.cron">
+        <field name="name">Expire Commercial Property Reservations</field>
+        <field name="model_id" ref="model_commercial_property_reservation"/>
+        <field name="state">code</field>
+        <field name="code">model._cron_expire_reservations()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">hours</field>
+        <field name="numbercall">-1</field>
+        <field name="doall" eval="False"/>
+    </record>
 </odoo>
