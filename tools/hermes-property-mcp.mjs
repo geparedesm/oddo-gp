@@ -31,7 +31,7 @@ export function createPropertyApiClient({
   const baseUrl = new URL(apiUrl);
   const authorizationToken = requireConfiguration(token, "HERMES_API_TOKEN");
 
-  async function request(pathname, parameters = {}) {
+  async function request(pathname, parameters = {}, requestOptions = {}) {
     const url = new URL(pathname, baseUrl);
     for (const [name, value] of Object.entries(parameters)) {
       if (value !== undefined) {
@@ -40,7 +40,9 @@ export function createPropertyApiClient({
     }
 
     const response = await fetchImpl(url, {
-      headers: { Authorization: `Bearer ${authorizationToken}` },
+      method: requestOptions.method || "GET",
+      headers: { Authorization: `Bearer ${authorizationToken}`, ...(requestOptions.body ? { "Content-Type": "application/json" } : {}) },
+      body: requestOptions.body ? JSON.stringify(requestOptions.body) : undefined,
     });
     const payload = await response.json().catch(() => null);
     if (!response.ok) {
@@ -61,6 +63,9 @@ export function createPropertyApiClient({
         max_rent: maxRent,
         limit,
       });
+    },
+    submitEnquiry(propertyCode, enquiry) {
+      return request(`/api/hermes/properties/${encodeURIComponent(propertyCode)}/enquiries`, {}, { method: "POST", body: enquiry });
     },
   };
 }
@@ -104,6 +109,27 @@ export function createHermesPropertyServer(clientFactory = createPropertyApiClie
       },
     },
     async ({ max_monthly_rent: maxRent, minimum_area: minArea, limit }) => toolResult(await clientFactory().searchProperties({ minArea, maxRent, limit })),
+  );
+
+  server.registerTool(
+    "submit_property_enquiry",
+    {
+      title: "Submit a consented commercial-property enquiry",
+      description: "Create a manager-reviewed, non-binding visit enquiry. Never use this without explicit consent; it never reserves a unit or creates a lease.",
+      inputSchema: {
+        property_code: z.string().trim().min(1).max(128),
+        name: z.string().trim().min(1).max(128),
+        phone: z.string().trim().min(3).max(64),
+        email: z.string().trim().email().max(254).optional(),
+        company_name: z.string().trim().max(256).optional(),
+        business_activity: z.string().trim().max(256).optional(),
+        desired_start_date: z.string().date().optional(),
+        consent: z.literal(true),
+        visit_requested: z.boolean().optional(),
+        message: z.string().trim().max(2000).optional(),
+      },
+    },
+    async ({ property_code: propertyCode, ...enquiry }) => toolResult(await clientFactory().submitEnquiry(propertyCode, enquiry)),
   );
 
   server.registerTool(

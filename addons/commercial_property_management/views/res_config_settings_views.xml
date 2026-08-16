@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="res_config_settings_view_form" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.inherit.commercial.property</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="base.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//div[hasclass('settings')]" position="inside">
+                <div class="app_settings_block" data-string="Commercial Properties" string="Commercial Properties" data-key="commercial_property_management">
+                    <h2>WhatsApp enquiry policy — Ecuador</h2>
+                    <div class="row mt16 o_settings_container">
+                        <div class="col-12 col-lg-6 o_setting_box"><div class="o_setting_left_pane"><field name="whatsapp_intake_enabled"/></div><div class="o_setting_right_pane"><label for="whatsapp_intake_enabled"/><div class="text-muted">Enable only after approving the policy below.</div></div></div>
+                        <div class="col-12 col-lg-6 o_setting_box"><div class="o_setting_left_pane"/><div class="o_setting_right_pane"><label for="whatsapp_jurisdiction"/><field name="whatsapp_jurisdiction"/></div></div>
+                        <div class="col-12 col-lg-6 o_setting_box"><div class="o_setting_left_pane"/><div class="o_setting_right_pane"><label for="whatsapp_consent_policy_version"/><field name="whatsapp_consent_policy_version"/><div class="text-muted">Purpose: commercial property enquiry and visit coordination.</div></div></div>
+                        <div class="col-12 col-lg-6 o_setting_box"><div class="o_setting_left_pane"/><div class="o_setting_right_pane"><label for="whatsapp_response_sla_business_hours"/><field name="whatsapp_response_sla_business_hours"/><label for="whatsapp_visit_hours"/><field name="whatsapp_visit_hours"/></div></div>
+                        <div class="col-12 col-lg-6 o_setting_box"><div class="o_setting_left_pane"/><div class="o_setting_right_pane"><label for="whatsapp_lead_retention_days"/><field name="whatsapp_lead_retention_days"/><label for="whatsapp_rejected_retention_days"/><field name="whatsapp_rejected_retention_days"/><label for="whatsapp_consent_audit_retention_days"/><field name="whatsapp_consent_audit_retention_days"/></div></div>
+                    </div>
+                </div>
+            </xpath>
+        </field>
+    </record>
+    <record id="action_commercial_property_settings" model="ir.actions.act_window">
+        <field name="name">WhatsApp Policy</field><field name="res_model">res.config.settings</field><field name="view_mode">form</field><field name="target">inline</field><field name="context">{'module': 'commercial_property_management'}</field>
+    </record>
+</odoo>

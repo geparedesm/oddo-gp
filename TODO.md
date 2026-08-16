@@ -166,13 +166,13 @@ Done when: Managers can lease and publish individual units within one building.
 
 Goal: turn an enquiry from a public sign into a consented, manager-reviewed lead.
 
-- [ ] Add a manager-only lead pipeline with consent, contact details, desired
+- [x] Add a manager-only lead pipeline with consent, contact details, desired
       start date, visit request and follow-up activities.
-- [ ] Let Hermes identify a building/unit through street, zone, public photos and
+- [x] Let Hermes identify a building/unit through street, zone, public photos and
       human-facing descriptions, without requiring QR codes, live location or
       technical codes.
-- [ ] Add a narrow authenticated lead-submission API and MCP tool.
-- [ ] Ensure chat never creates a tenant, reservation or lease automatically.
+- [x] Add a narrow authenticated lead-submission API and MCP tool.
+- [x] Ensure chat never creates a tenant, reservation or lease automatically.
 
 Done when: A WhatsApp enquiry creates a safe lead and visit request for the
 correct commercial unit.

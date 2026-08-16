@@ -279,6 +279,77 @@ class TestCommercialProperty(TransactionCase):
         with self.assertRaises(AccessError):
             self.env["commercial.lease"].with_user(self.user).search([])
 
+    def test_manager_creates_consent_based_lead_and_property_user_cannot_read_it(self):
+        building = self.env["commercial.property"].with_user(self.manager).create(
+            {"name": "Lead Building", "area": 100, "monthly_rent": 1500, "public_name": "Lead unit", "public_description": "Available unit", "public_monthly_rent": 1500, "is_published": True}
+        )
+        lead = self.env["commercial.property.lead"].with_user(self.manager).create(
+            {"name": "WhatsApp Prospect", "phone": "+15550100", "unit_id": building.default_unit_id.id, "consent_at": fields.Datetime.now(), "source": "whatsapp", "visit_requested_at": fields.Datetime.now()}
+        )
+        self.assertEqual(lead.state, "new")
+        self.assertEqual(lead.property_id, building)
+        self.assertTrue(lead.activity_ids)
+        with self.assertRaises(AccessError):
+            lead.with_user(self.user).read()
+
+    def test_lead_requires_a_published_available_unit_and_manager_transition(self):
+        building = self.env["commercial.property"].with_user(self.manager).create(
+            {"name": "Lead Transition Building", "area": 100, "monthly_rent": 1500}
+        )
+        with self.assertRaises(ValidationError):
+            self.env["commercial.property.lead"].with_user(self.manager).create(
+                {"name": "Prospect", "phone": "+15550000000", "unit_id": building.default_unit_id.id, "consent_at": fields.Datetime.now()}
+            )
+
+        building.default_unit_id.write(
+            {"is_published": True, "public_name": "Published unit", "public_description": "A published unit", "public_monthly_rent": 1500}
+        )
+        lead = self.env["commercial.property.lead"].with_user(self.manager).create(
+            {"name": "Prospect", "phone": "+15550000000", "unit_id": building.default_unit_id.id, "consent_at": fields.Datetime.now(), "source": "whatsapp"}
+        )
+        with self.assertRaises(ValidationError):
+            lead.action_convert_to_tenant_draft()
+
+        lead.action_qualify()
+        lead.action_start_review()
+        tenant_action = lead.action_convert_to_tenant_draft()
+        self.assertEqual(lead.state, "converted")
+        self.assertTrue(lead.tenant_id.is_commercial_tenant)
+        self.assertEqual(tenant_action["res_id"], lead.tenant_id.id)
+        self.assertFalse(self.env["commercial.lease"].with_user(self.manager).search_count([("unit_id", "=", building.default_unit_id.id)]))
+
+    def test_whatsapp_lead_uses_ecuador_policy_and_anonymizes_on_retention_expiry(self):
+        parameters = self.env["ir.config_parameter"].sudo()
+        parameters.set_param("commercial_property_management.whatsapp_lead_retention_days", 180)
+        parameters.set_param("commercial_property_management.whatsapp_rejected_retention_days", 30)
+        parameters.set_param("commercial_property_management.whatsapp_consent_policy_version", "EC-2026-1")
+        building = self.env["commercial.property"].with_user(self.manager).create(
+            {"name": "Retention Building", "area": 100, "monthly_rent": 1500, "public_name": "Retention unit", "public_description": "Published", "public_monthly_rent": 1500, "is_published": True}
+        )
+        lead = self.env["commercial.property.lead"].with_user(self.manager).create(
+            {"name": "Retention Prospect", "phone": "+155****0200", "email": "prospect@example.test", "company_name": "Retention Company", "message": "Please call me", "unit_id": building.default_unit_id.id, "consent_at": fields.Datetime.now(), "source": "whatsapp", "visit_requested_at": fields.Datetime.now()}
+        )
+        self.assertEqual(lead.consent_policy_version, "EC-2026-1")
+        self.assertEqual(lead.consent_purpose, "Commercial property enquiry and visit coordination")
+        self.assertTrue(lead.retention_deadline)
+        self.assertEqual(lead.activity_ids.date_deadline, fields.Date.add(fields.Date.today(), days=1))
+        lead.write({"retention_deadline": fields.Datetime.subtract(fields.Datetime.now(), days=1)})
+        self.env["commercial.property.lead"]._cron_anonymize_expired_personal_data()
+        self.assertEqual(lead.name, "Anonymized prospect")
+        self.assertFalse(lead.phone or lead.email or lead.company_name or lead.message or lead.visit_requested_at)
+        self.assertTrue(lead.anonymized_at)
+
+    def test_default_unit_receives_legacy_property_public_listing_updates(self):
+        building = self.env["commercial.property"].with_user(self.manager).create(
+            {"name": "Legacy Public Listing Building", "area": 100, "monthly_rent": 1500}
+        )
+        building.write(
+            {"is_published": True, "public_name": "Corner office", "public_description": "Next to the pharmacy", "public_monthly_rent": 1750}
+        )
+        self.assertTrue(building.default_unit_id.is_published)
+        self.assertEqual(building.default_unit_id.public_name, "Corner office")
+        self.assertEqual(building.default_unit_id.public_monthly_rent, 1750)
+
     def test_expiry_cron_creates_one_activity_at_each_reminder_threshold(self):
         tenant = self.env["res.partner"].with_user(self.manager).create(
             {"name": "Expiry Reminder Tenant", "is_commercial_tenant": True}

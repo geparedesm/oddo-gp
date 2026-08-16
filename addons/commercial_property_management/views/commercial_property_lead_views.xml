@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_commercial_property_lead_tree" model="ir.ui.view">
+        <field name="name">commercial.property.lead.tree</field>
+        <field name="model">commercial.property.lead</field>
+        <field name="arch" type="xml">
+            <tree>
+                <field name="name"/><field name="phone"/><field name="unit_id"/><field name="visit_requested_at"/><field name="assigned_user_id"/><field name="state" widget="badge"/>
+            </tree>
+        </field>
+    </record>
+    <record id="view_commercial_property_lead_form" model="ir.ui.view">
+        <field name="name">commercial.property.lead.form</field>
+        <field name="model">commercial.property.lead</field>
+        <field name="arch" type="xml">
+            <form string="Commercial Enquiry">
+                <header><button name="action_qualify" type="object" string="Qualify" class="btn-primary" attrs="{'invisible':[('state','!=','new')]}"/><button name="action_schedule_visit" type="object" string="Schedule Visit" attrs="{'invisible':[('state','!=','qualified')]}"/><button name="action_start_review" type="object" string="Review" class="btn-primary" attrs="{'invisible':[('state','not in',('qualified','visit_scheduled'))]}"/><button name="action_convert_to_tenant_draft" type="object" string="Create Tenant Draft" class="btn-primary" attrs="{'invisible':[('state','!=','under_review')]}"/><button name="action_reject" type="object" string="Reject" attrs="{'invisible':[('state','in',('rejected','converted'))]}"/><field name="state" widget="statusbar" statusbar_visible="new,qualified,visit_scheduled,under_review,rejected,converted"/></header>
+                <sheet><div class="oe_title"><h1><field name="name"/></h1></div><group><group string="Enquiry"><field name="unit_id" options="{'no_create': True}"/><field name="property_id" readonly="1"/><field name="source" readonly="1"/><field name="visit_requested_at" readonly="1"/><field name="assigned_user_id"/><field name="tenant_id" readonly="1" attrs="{'invisible':[('tenant_id','=',False)]}"/></group><group string="Prospect"><field name="phone"/><field name="email"/><field name="company_name"/><field name="business_activity"/><field name="desired_start_date"/><field name="consent_at" readonly="1"/></group></group><field name="message"/><div class="oe_chatter"><field name="activity_ids" widget="mail_activity"/><field name="message_ids" widget="mail_thread"/></div></sheet>
+            </form>
+        </field>
+    </record>
+    <record id="view_commercial_property_lead_search" model="ir.ui.view">
+        <field name="name">commercial.property.lead.search</field>
+        <field name="model">commercial.property.lead</field>
+        <field name="arch" type="xml">
+            <search><field name="name"/><field name="phone"/><field name="unit_id"/><filter name="new" string="New" domain="[('state','=','new')]"/><filter name="visit_requested" string="Visit Requested" domain="[('visit_requested_at','!=',False)]"/><filter name="unassigned" string="Unassigned" domain="[('assigned_user_id','=',False)]"/><filter name="overdue" string="Overdue" domain="[('activity_date_deadline','&lt;',context_today())]"/></search>
+        </field>
+    </record>
+    <record id="view_commercial_property_lead_kanban" model="ir.ui.view">
+        <field name="name">commercial.property.lead.kanban</field>
+        <field name="model">commercial.property.lead</field>
+        <field name="arch" type="xml">
+            <kanban default_group_by="state"><field name="name"/><field name="unit_id"/><field name="visit_requested_at"/><field name="assigned_user_id"/><field name="state"/><templates><t t-name="kanban-box"><div t-attf-class="oe_kanban_global_click o_kanban_record"><div class="o_kanban_details"><strong><field name="name"/></strong><div><field name="unit_id"/></div><div t-if="record.visit_requested_at.raw_value">Visit requested</div><div><field name="assigned_user_id"/></div></div></div></t></templates></kanban>
+        </field>
+    </record>
+</odoo>

@@ -17,6 +17,7 @@ const leaseDashboardActionId = requireCredential(
   process.env.E2E_LEASE_DASHBOARD_ACTION_ID,
   "E2E lease dashboard action ID"
 );
+const enquiryActionId = requireCredential(process.env.E2E_ENQUIRY_ACTION_ID, "E2E enquiry action ID");
 const moduleIconPath = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "../../addons/commercial_property_management/static/description/icon.png"
@@ -100,6 +101,11 @@ async function openLeaseOperationsDashboard(page) {
   await expect(page.locator("div.o_pivot")).toBeVisible();
 }
 
+async function openEnquiries(page) {
+  await page.goto(`/web#action=${enquiryActionId}&model=commercial.property.lead&view_type=list`, { waitUntil: "domcontentloaded" });
+  await expect(page.locator(".o_list_view")).toBeVisible();
+}
+
 test("an administrator can review lease operations metrics and expiry filters", async ({ page }) => {
   const monitored = monitorPage(page);
 
@@ -110,6 +116,35 @@ test("an administrator can review lease operations metrics and expiry filters", 
   await expect(page.getByText("Expiring in 30 Days", { exact: true })).toBeVisible();
   await expect(page.getByText("Expiring in 7 Days", { exact: true })).toBeVisible();
 
+  await expectNoClientOrServerErrors(page, monitored);
+});
+
+test("an administrator can access enquiries while a Property User cannot", async ({ page }) => {
+  const monitored = monitorPage(page);
+  await login(page, administrator);
+  await openEnquiries(page);
+  await expect(page.getByText("Enquiries", { exact: true }).last()).toBeVisible();
+  await page.goto("/web/session/logout", { waitUntil: "domcontentloaded" });
+  await login(page, propertyUser);
+  await page.locator(".o_main_navbar button").first().click();
+  await page.getByRole("menuitem", { name: "Commercial Properties" }).first().click();
+  await expect(page.getByText("Enquiries", { exact: true })).toHaveCount(0);
+  await expectNoClientOrServerErrors(page, monitored);
+});
+
+test("an administrator can review the Ecuador WhatsApp policy while a Property User cannot", async ({ page }) => {
+  const monitored = monitorPage(page);
+  await login(page, administrator);
+  await page.locator(".o_main_navbar button").first().click();
+  await page.getByRole("menuitem", { name: "Commercial Properties" }).first().click();
+  await page.getByText("WhatsApp Policy", { exact: true }).click();
+  await expect(page.getByText("WhatsApp enquiry policy — Ecuador", { exact: true })).toBeVisible();
+  await expect(page.getByText("Enable only after approving the policy below.", { exact: true })).toBeVisible();
+  await page.goto("/web/session/logout", { waitUntil: "domcontentloaded" });
+  await login(page, propertyUser);
+  await page.locator(".o_main_navbar button").first().click();
+  await page.getByRole("menuitem", { name: "Commercial Properties" }).first().click();
+  await expect(page.getByText("WhatsApp Policy", { exact: true })).toHaveCount(0);
   await expectNoClientOrServerErrors(page, monitored);
 });
 
@@ -199,6 +234,8 @@ test("a Property User can read inventory but cannot create or edit it", async ({
   await login(page, propertyUser);
   await openProperties(page, { canCreate: false });
   await expect(page.locator("button.o_list_button_add")).toHaveCount(0);
+  await page.locator(".o_searchview_input").fill(propertyName);
+  await page.keyboard.press("Enter");
   await page.getByText(propertyName, { exact: true }).click();
   await expect(page.getByRole("button", { name: "Save manually" })).toHaveCount(0);
 

@@ -36,6 +36,8 @@
         groups="commercial_property_management.group_property_manager"
     />
 
+    <menuitem id="menu_commercial_property_lead" name="Enquiries" parent="menu_commercial_property_root" action="commercial_property_management.action_commercial_property_lead" sequence="25" groups="commercial_property_management.group_property_manager"/>
+
     <menuitem
         id="menu_commercial_lease"
         name="Lease Contracts"
@@ -53,4 +55,5 @@
         sequence="40"
         groups="commercial_property_management.group_property_manager"
     />
+    <menuitem id="menu_commercial_property_settings" name="WhatsApp Policy" parent="menu_commercial_property_root" action="commercial_property_management.action_commercial_property_settings" sequence="90" groups="base.group_system"/>
 </odoo>

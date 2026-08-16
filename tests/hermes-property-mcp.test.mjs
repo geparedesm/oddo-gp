@@ -72,3 +72,22 @@ test("a property code is encoded before requesting public details", async () => 
 
   assert.equal(receivedUrl.pathname, "/api/hermes/properties/CP%20001");
 });
+
+test("a consented enquiry is posted to the encoded public unit URL", async () => {
+  let receivedUrl;
+  let receivedOptions;
+  const client = createPropertyApiClient({
+    apiUrl: "https://odoo.example.test", token: "test-token",
+    fetchImpl: async (url, options) => {
+      receivedUrl = url;
+      receivedOptions = options;
+      return jsonResponse(201, { message: "Your enquiry was received for manager review." });
+    },
+  });
+  const enquiry = { name: "Ana", phone: "+1555", consent: true, visit_requested: true };
+  assert.deepEqual(await client.submitEnquiry("CP 001", enquiry), { message: "Your enquiry was received for manager review." });
+  assert.equal(receivedUrl.pathname, "/api/hermes/properties/CP%20001/enquiries");
+  assert.equal(receivedOptions.method, "POST");
+  assert.equal(receivedOptions.headers["Content-Type"], "application/json");
+  assert.deepEqual(JSON.parse(receivedOptions.body), enquiry);
+});

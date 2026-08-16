@@ -107,6 +107,20 @@ class CommercialProperty(models.Model):
         properties._ensure_default_units()
         return properties
 
+    def write(self, vals):
+        result = super().write(vals)
+        unit_fields = {
+            "area", "monthly_rent", "available_date", "image_1920", "notes",
+            "public_name", "public_description", "public_monthly_rent",
+            "public_feature_ids", "is_published",
+        }
+        copied_values = {field: vals[field] for field in unit_fields & vals.keys()}
+        if copied_values:
+            for property_record in self:
+                property_record._ensure_default_units()
+                property_record.default_unit_id.write(copied_values)
+        return result
+
     def _ensure_default_units(self):
         unit_model = self.env["commercial.property.unit"]
         for property_record in self:

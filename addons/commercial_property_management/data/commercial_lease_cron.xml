@@ -10,4 +10,14 @@
         <field name="numbercall">-1</field>
         <field name="doall" eval="False"/>
     </record>
+    <record id="ir_cron_anonymize_commercial_property_leads" model="ir.cron">
+        <field name="name">Anonymize Expired Commercial Enquiry Data</field>
+        <field name="model_id" ref="model_commercial_property_lead"/>
+        <field name="state">code</field>
+        <field name="code">model._cron_anonymize_expired_personal_data()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">days</field>
+        <field name="numbercall">-1</field>
+        <field name="doall" eval="False"/>
+    </record>
 </odoo>

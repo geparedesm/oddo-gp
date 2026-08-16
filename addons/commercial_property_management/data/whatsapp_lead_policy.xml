@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+    <record id="parameter_whatsapp_intake_enabled" model="ir.config_parameter"><field name="key">commercial_property_management.whatsapp_intake_enabled</field><field name="value">False</field></record>
+    <record id="parameter_whatsapp_jurisdiction" model="ir.config_parameter"><field name="key">commercial_property_management.whatsapp_jurisdiction</field><field name="value">Ecuador</field></record>
+    <record id="parameter_whatsapp_consent_policy_version" model="ir.config_parameter"><field name="key">commercial_property_management.whatsapp_consent_policy_version</field><field name="value">EC-2026-1</field></record>
+    <record id="parameter_whatsapp_lead_retention_days" model="ir.config_parameter"><field name="key">commercial_property_management.whatsapp_lead_retention_days</field><field name="value">180</field></record>
+    <record id="parameter_whatsapp_rejected_retention_days" model="ir.config_parameter"><field name="key">commercial_property_management.whatsapp_rejected_retention_days</field><field name="value">30</field></record>
+    <record id="parameter_whatsapp_consent_audit_retention_days" model="ir.config_parameter"><field name="key">commercial_property_management.whatsapp_consent_audit_retention_days</field><field name="value">730</field></record>
+    <record id="parameter_whatsapp_response_sla_business_hours" model="ir.config_parameter"><field name="key">commercial_property_management.whatsapp_response_sla_business_hours</field><field name="value">8</field></record>
+    <record id="parameter_whatsapp_visit_hours" model="ir.config_parameter"><field name="key">commercial_property_management.whatsapp_visit_hours</field><field name="value">Monday to Saturday, 09:00 to 18:00</field></record>
+</odoo>

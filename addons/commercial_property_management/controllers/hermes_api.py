@@ -2,7 +2,9 @@ import hmac
 import math
 import os
 
-from odoo import http
+import json
+
+from odoo import fields, http
 from odoo.http import request
 
 
@@ -25,6 +27,9 @@ class HermesPropertyController(http.Controller):
         if not expected_token or not authorization.startswith(token_prefix):
             return False
         return hmac.compare_digest(authorization[len(token_prefix) :], expected_token)
+
+    def _is_intake_enabled(self):
+        return request.env["ir.config_parameter"].sudo().get_param("commercial_property_management.whatsapp_intake_enabled") == "True"
 
     def _parse_non_negative_number(self, value, parameter):
         if value in (None, ""):
@@ -70,3 +75,54 @@ class HermesPropertyController(http.Controller):
         if not unit:
             return self._error(404, "not_found", "Public property not found.")
         return self._json_response({"property": unit.get_public_data()})
+
+    @http.route("/api/hermes/properties/<string:property_code>/enquiries", type="http", auth="none", methods=["POST"], csrf=False)
+    def submit_enquiry(self, property_code, **params):
+        if not self._is_authenticated():
+            return self._error(401, "unauthorized", "A valid bearer token is required.")
+        if not self._is_intake_enabled():
+            return self._error(503, "intake_disabled", "WhatsApp enquiry intake is awaiting administrator approval.")
+        try:
+            payload = json.loads(request.httprequest.data.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            payload = None
+        if not isinstance(payload, dict):
+            return self._error(400, "invalid_parameter", "A JSON object is required.")
+        allowed = {"name", "phone", "email", "company_name", "business_activity", "desired_start_date", "message", "visit_requested", "consent"}
+        text_fields = allowed - {"consent", "visit_requested", "desired_start_date"}
+        if (
+            payload.get("consent") is not True
+            or not isinstance(payload.get("name"), str)
+            or not payload["name"].strip()
+            or not isinstance(payload.get("phone"), str)
+            or not payload["phone"].strip()
+            or set(payload) - allowed
+            or any(not isinstance(payload[field], str) for field in text_fields if field in payload)
+            or ("visit_requested" in payload and not isinstance(payload["visit_requested"], bool))
+        ):
+            return self._error(400, "invalid_parameter", "Name, phone and explicit consent are required.")
+        if payload.get("desired_start_date"):
+            try:
+                fields.Date.to_date(payload["desired_start_date"])
+            except (TypeError, ValueError):
+                return self._error(400, "invalid_parameter", "desired_start_date must be a valid date.")
+        unit = request.env["commercial.property.unit"].sudo().search_public_units(code=property_code, limit=1)
+        if not unit:
+            return self._error(404, "not_found", "Public property not found.")
+        values = {
+            field: payload[field].strip()
+            for field in text_fields
+            if payload.get(field)
+        }
+        if payload.get("desired_start_date"):
+            values["desired_start_date"] = payload["desired_start_date"]
+        values.update(
+            {
+                "unit_id": unit.id,
+                "consent_at": request.env.cr.now(),
+                "source": "whatsapp",
+                "visit_requested_at": request.env.cr.now() if payload.get("visit_requested") else False,
+            }
+        )
+        request.env["commercial.property.lead"].sudo().create(values)
+        return self._json_response({"message": "Your enquiry was received for manager review."}, status=201)
