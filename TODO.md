@@ -152,12 +152,12 @@ administrator with a clear setup and usage guide.
 
 Goal: represent one building with multiple independently rentable commercial units.
 
-- [ ] Add a building/property parent and commercial-unit child structure.
-- [ ] Move unit-level availability, rent, photos, public details and lease history
+- [x] Add a building/property parent and commercial-unit child structure.
+- [x] Move unit-level availability, rent, photos, public details and lease history
       to each commercial unit.
-- [ ] Preserve existing one-property/one-unit records through an explicit
+- [x] Preserve existing one-property/one-unit records through an explicit
       migration path.
-- [ ] Verify that leasing one unit never changes the availability of other units
+- [x] Verify that leasing one unit never changes the availability of other units
       in the same building.
 
 Done when: Managers can lease and publish individual units within one building.

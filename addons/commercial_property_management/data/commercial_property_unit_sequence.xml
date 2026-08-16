@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="seq_commercial_property_unit" model="ir.sequence">
+        <field name="name">Commercial Property Unit</field>
+        <field name="code">commercial.property.unit</field>
+        <field name="prefix">CU%(year)s-</field>
+        <field name="padding">4</field>
+    </record>
+</odoo>

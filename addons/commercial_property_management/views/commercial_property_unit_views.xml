@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_commercial_property_unit_tree" model="ir.ui.view">
+        <field name="name">commercial.property.unit.tree</field>
+        <field name="model">commercial.property.unit</field>
+        <field name="arch" type="xml">
+            <tree decoration-success="state == 'available'" decoration-info="state == 'rented'" decoration-warning="state == 'reserved'">
+                <field name="code"/><field name="name"/><field name="property_id"/><field name="area"/><field name="monthly_rent" widget="monetary"/><field name="currency_id" invisible="1"/><field name="state" widget="badge"/><field name="is_published"/>
+            </tree>
+        </field>
+    </record>
+    <record id="view_commercial_property_unit_form" model="ir.ui.view">
+        <field name="name">commercial.property.unit.form</field>
+        <field name="model">commercial.property.unit</field>
+        <field name="arch" type="xml">
+            <form string="Commercial Unit">
+                <header><field name="state" widget="statusbar" statusbar_visible="available,reserved,rented,maintenance,inactive"/></header>
+                <sheet>
+                    <field name="image_1920" widget="image" class="oe_avatar"/>
+                    <div class="oe_title"><h1><field name="name" placeholder="e.g. Ground floor corner unit"/></h1><div><field name="code" readonly="1"/></div></div>
+                    <group><group string="Unit Details"><field name="property_id" options="{'no_create': True}"/><field name="floor"/><field name="entrance_description"/><field name="area"/><field name="monthly_rent" widget="monetary"/><field name="currency_id" invisible="1"/><field name="available_date"/></group><group string="Availability"><field name="state"/><field name="is_published"/><field name="active"/></group></group>
+                    <notebook><page string="Public Listing" groups="commercial_property_management.group_property_manager"><group><field name="public_name"/><field name="public_monthly_rent" widget="monetary"/><field name="public_feature_ids" widget="many2many_tags"/></group><field name="public_description"/></page><page string="Lease History" groups="commercial_property_management.group_property_manager"><field name="lease_ids" context="{'default_property_id': property_id, 'default_unit_id': active_id}"><tree><field name="name"/><field name="tenant_id"/><field name="start_date"/><field name="end_date"/><field name="state"/></tree></field></page><page string="Internal Notes"><field name="notes"/></page></notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+    <record id="view_commercial_property_unit_search" model="ir.ui.view"><field name="name">commercial.property.unit.search</field><field name="model">commercial.property.unit</field><field name="arch" type="xml"><search><field name="name"/><field name="code"/><field name="property_id"/><filter name="available" string="Available" domain="[('state','=','available')]"/><filter name="published" string="Published" domain="[('is_published','=',True)]"/></search></field></record>
+</odoo>

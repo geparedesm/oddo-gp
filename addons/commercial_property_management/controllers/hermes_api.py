@@ -52,21 +52,21 @@ class HermesPropertyController(http.Controller):
         except (TypeError, ValueError):
             return self._error(400, "invalid_parameter", "Use valid non-negative filters and a limit from 1 to 50.")
 
-        properties = request.env["commercial.property"].sudo().search_public_properties(
+        units = request.env["commercial.property.unit"].sudo().search_public_units(
             min_area=min_area,
             max_rent=max_rent,
             limit=limit,
         )
-        return self._json_response({"properties": [property_record.get_public_data() for property_record in properties]})
+        return self._json_response({"properties": [unit.get_public_data() for unit in units]})
 
     @http.route("/api/hermes/properties/<string:property_code>", type="http", auth="none", methods=["GET"], csrf=False)
     def get_property(self, property_code, **params):
         if not self._is_authenticated():
             return self._error(401, "unauthorized", "A valid bearer token is required.")
-        property_record = request.env["commercial.property"].sudo().search_public_properties(
+        unit = request.env["commercial.property.unit"].sudo().search_public_units(
             code=property_code,
             limit=1,
         )
-        if not property_record:
+        if not unit:
             return self._error(404, "not_found", "Public property not found.")
-        return self._json_response({"property": property_record.get_public_data()})
+        return self._json_response({"property": unit.get_public_data()})

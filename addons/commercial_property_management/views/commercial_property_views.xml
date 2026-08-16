@@ -55,6 +55,11 @@
                         </group>
                     </group>
                     <notebook>
+                        <page string="Commercial Units" groups="commercial_property_management.group_property_manager">
+                            <field name="unit_ids" context="{'default_property_id': active_id}" mode="tree,form">
+                                <tree><field name="code"/><field name="name"/><field name="area"/><field name="monthly_rent" widget="monetary"/><field name="state" widget="badge"/></tree>
+                            </field>
+                        </page>
                         <page string="Photo">
                             <group>
                                 <field name="image_1920" widget="image" class="oe_avatar" options="{'preview_image': 'image_1920'}"/>

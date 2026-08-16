@@ -72,6 +72,8 @@ class CommercialProperty(models.Model):
         string="Published",
         help="Make this available property visible through the Hermes public API.",
     )
+    unit_ids = fields.One2many("commercial.property.unit", "property_id", string="Commercial Units", copy=False)
+    default_unit_id = fields.Many2one("commercial.property.unit", string="Default Unit", copy=False, ondelete="set null")
     lease_ids = fields.One2many("commercial.lease", "property_id", string="Lease History", copy=False)
     current_lease_id = fields.Many2one(
         "commercial.lease",
@@ -101,7 +103,45 @@ class CommercialProperty(models.Model):
         for vals in vals_list:
             if vals.get("code", _("New")) == _("New"):
                 vals["code"] = self.env["ir.sequence"].next_by_code("commercial.property") or _("New")
-        return super().create(vals_list)
+        properties = super().create(vals_list)
+        properties._ensure_default_units()
+        return properties
+
+    def _ensure_default_units(self):
+        unit_model = self.env["commercial.property.unit"]
+        for property_record in self:
+            default_unit = property_record.default_unit_id or property_record.unit_ids.filtered("is_default")[:1]
+            if not default_unit:
+                default_unit = unit_model.create(
+                    {
+                        "property_id": property_record.id,
+                        "name": property_record.name,
+                        "code": property_record.code,
+                        "is_default": True,
+                        "state": property_record.state,
+                        "area": property_record.area,
+                        "monthly_rent": property_record.monthly_rent,
+                        "available_date": property_record.available_date,
+                        "image_1920": property_record.image_1920,
+                        "notes": property_record.notes,
+                        "public_name": property_record.public_name,
+                        "public_description": property_record.public_description,
+                        "public_monthly_rent": property_record.public_monthly_rent,
+                        "public_feature_ids": [(6, 0, property_record.public_feature_ids.ids)],
+                        "is_published": property_record.is_published,
+                    }
+                )
+            if property_record.default_unit_id != default_unit:
+                property_record.default_unit_id = default_unit
+        return True
+
+    @api.model
+    def _migrate_units_from_properties(self):
+        self.search([])._ensure_default_units()
+        for lease in self.env["commercial.lease"].search([("unit_id", "=", False)]):
+            lease.unit_id = lease.property_id.default_unit_id
+        self.env["commercial.property.unit"].search([])._sync_availability_from_leases()
+        return True
 
     @api.constrains("area", "monthly_rent")
     def _check_property_values(self):
@@ -141,33 +181,12 @@ class CommercialProperty(models.Model):
                 property_record.state = state
 
     def get_public_data(self):
-        """Return the deliberately small data contract exposed to external agents."""
+        """Compatibility wrapper for integrations that previously used a property listing."""
         self.ensure_one()
-        property_type_label = dict(self._fields["property_type"].selection).get(self.property_type)
-        return {
-            "code": self.code,
-            "name": self.public_name,
-            "description": self.public_description,
-            "monthly_rent": self.public_monthly_rent,
-            "currency": self.currency_id.name,
-            "area": self.area,
-            "property_type": property_type_label,
-            "features": self.public_feature_ids.mapped("name"),
-            "city": self.city or None,
-            "available_from": fields.Date.to_string(self.available_date) if self.available_date else None,
-        }
+        self._ensure_default_units()
+        return self.default_unit_id.get_public_data()
 
     @api.model
     def search_public_properties(self, min_area=None, max_rent=None, code=None, limit=None):
-        domain = [
-            ("active", "=", True),
-            ("is_published", "=", True),
-            ("state", "=", "available"),
-        ]
-        if min_area is not None:
-            domain.append(("area", ">=", min_area))
-        if max_rent is not None:
-            domain.append(("public_monthly_rent", "<=", max_rent))
-        if code:
-            domain.append(("code", "=", code))
-        return self.search(domain, limit=limit, order="public_monthly_rent asc, id")
+        units = self.env["commercial.property.unit"].search_public_units(min_area, max_rent, code, limit)
+        return units.mapped("property_id")

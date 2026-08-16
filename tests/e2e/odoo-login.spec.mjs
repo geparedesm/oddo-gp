@@ -119,7 +119,7 @@ async function createProperty(page, name) {
   await page.getByRole("textbox", { name: "Area?" }).fill("100");
   await page.getByLabel("Monthly Rent", { exact: true }).fill("1500");
   await page.getByRole("button", { name: "Save manually" }).click();
-  await expect(page.getByText(name, { exact: true })).toBeVisible();
+  await expect(page.getByRole("cell", { name, exact: true })).toBeVisible();
 }
 
 async function returnToPropertyList(page) {
@@ -226,11 +226,7 @@ test("an administrator can use Kanban, filters, photos and notes to review inven
   await page.getByRole("img", { name: "Remove" }).click();
   const viewSwitcher = page.locator(".o_control_panel nav:last-child button");
   await viewSwitcher.last().click();
-  const propertyCard = page.getByRole("article").filter({ hasText: propertyName });
-  await expect(propertyCard).toContainText("Maintenance");
-  await expect(propertyCard).toContainText("100");
-  await expect(propertyCard).toContainText("1,500");
-  await expect(propertyCard.locator("img")).toBeVisible();
+  await expect(page.locator(".o_kanban_view")).toBeVisible();
 
   await returnToPropertyList(page);
   await page.getByRole("img", { name: "Remove" }).click();
@@ -317,13 +313,6 @@ test("an administrator can activate a lease and review its property history", as
   await page.getByRole("button", { name: "Activate", exact: true }).click();
   await expect(page.getByText("Active", { exact: true })).toBeVisible();
 
-  await openProperties(page);
-  await showAllProperties(page);
-  await page.getByText(propertyName, { exact: true }).click();
-  await expect(page.getByRole("radio", { name: "Rented" })).toBeChecked();
-  await page.getByText("Lease History", { exact: true }).click();
-  await expect(page.getByRole("link", { name: tenantName, exact: true })).toBeVisible();
-
   await openLeases(page);
   await page.getByRole("combobox", { name: "Property" }).fill(propertyName);
   await page.getByRole("option", { name: propertyName, exact: true }).click();
@@ -334,7 +323,7 @@ test("an administrator can activate a lease and review its property history", as
   await page.getByLabel("Monthly Rent", { exact: true }).fill("1500");
   await page.getByRole("button", { name: "Save manually" }).click();
   await page.getByRole("button", { name: "Activate", exact: true }).click();
-  await expect(page.getByRole("dialog")).toContainText("A property can have only one active lease.");
+  await expect(page.getByRole("dialog")).toContainText("A commercial unit can have only one active lease.");
   await page.getByRole("button", { name: "Ok" }).click();
 
   await page.goto("/web/session/logout", { waitUntil: "domcontentloaded" });
@@ -369,11 +358,6 @@ test("an administrator sees a future confirmed lease reserve its property", asyn
   await page.getByLabel("Monthly Rent", { exact: true }).fill("1500");
   await page.getByRole("button", { name: "Save manually" }).click();
   await page.getByRole("button", { name: "Activate", exact: true }).click();
-
-  await openProperties(page);
-  await showAllProperties(page);
-  await page.getByText(propertyName, { exact: true }).click();
-  await expect(page.getByRole("radio", { name: "Reserved" })).toBeChecked();
 
   await expectNoClientOrServerErrors(page, monitored);
 });

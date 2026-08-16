@@ -41,6 +41,28 @@ class TestCommercialProperty(TransactionCase):
 
         self.assertRegex(property_record.code, r"^CP[0-9]{4}-[0-9]{4}$")
         self.assertEqual(property_record.state, "available")
+        self.assertEqual(len(property_record.unit_ids), 1)
+        self.assertEqual(property_record.default_unit_id.code, property_record.code)
+
+    def test_active_lease_for_one_unit_does_not_change_other_unit_availability(self):
+        building = self.env["commercial.property"].with_user(self.manager).create(
+            {"name": "Multi-unit Building", "area": 100, "monthly_rent": 1500}
+        )
+        second_unit = self.env["commercial.property.unit"].with_user(self.manager).create(
+            {"property_id": building.id, "name": "Corner Unit", "area": 80, "monthly_rent": 2200}
+        )
+        tenant = self.env["res.partner"].with_user(self.manager).create(
+            {"name": "Multi-unit Tenant", "is_commercial_tenant": True}
+        )
+        lease = self.env["commercial.lease"].with_user(self.manager).create(
+            {"property_id": building.id, "unit_id": building.default_unit_id.id, "tenant_id": tenant.id,
+             "start_date": self.today, "end_date": self.today + timedelta(days=30), "monthly_rent": 1500}
+        )
+        lease.action_activate()
+
+        self.assertEqual(building.default_unit_id.state, "rented")
+        self.assertEqual(second_unit.state, "available")
+        self.assertEqual(lease.unit_id, building.default_unit_id)
 
     def test_invalid_property_values_are_rejected(self):
         with self.assertRaises(ValidationError):
