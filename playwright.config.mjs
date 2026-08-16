@@ -2,6 +2,7 @@ import dotenv from "dotenv";
 import { defineConfig, devices } from "@playwright/test";
 
 dotenv.config({ path: ".env.e2e" });
+dotenv.config({ path: ".env.e2e.runtime", override: true });
 
 export default defineConfig({
   testDir: "./tests/e2e",

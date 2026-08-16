@@ -11,8 +11,8 @@ const propertyUser = {
   username: process.env.E2E_PROPERTY_USER,
   password: process.env.E2E_PROPERTY_USER_PASSWORD
 };
-const tenantActionId = process.env.E2E_TENANT_ACTION_ID || "162";
-const leaseActionId = process.env.E2E_LEASE_ACTION_ID || "163";
+const tenantActionId = requireCredential(process.env.E2E_TENANT_ACTION_ID, "E2E tenant action ID");
+const leaseActionId = requireCredential(process.env.E2E_LEASE_ACTION_ID, "E2E lease action ID");
 const moduleIconPath = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "../../addons/commercial_property_management/static/description/icon.png"

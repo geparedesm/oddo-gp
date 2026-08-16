@@ -10,6 +10,8 @@ source ./.env
 source ./.env.e2e
 set +a
 
+runtime_env_file=".env.e2e.runtime"
+
 for required_variable in E2E_ODOO_DB E2E_PROPERTY_USER E2E_PROPERTY_USER_PASSWORD; do
   if [[ -z "${!required_variable:-}" || "${!required_variable}" == replace-with-* ]]; then
     echo "${required_variable} must be set in .env.e2e."
@@ -48,5 +50,29 @@ else:
 
 env.cr.commit()
 PYTHON
+
+action_ids="$(
+  docker compose exec -T odoo odoo shell -c /etc/odoo/odoo.conf -d "${E2E_ODOO_DB}" --no-http <<'PYTHON'
+print(f"E2E_TENANT_ACTION_ID={env.ref('commercial_property_management.action_commercial_tenant').id}")
+print(f"E2E_LEASE_ACTION_ID={env.ref('commercial_property_management.action_commercial_lease').id}")
+PYTHON
+)"
+
+tenant_action_id=""
+lease_action_id=""
+while IFS= read -r line; do
+  case "${line}" in
+    E2E_TENANT_ACTION_ID=*) tenant_action_id="${line#*=}" ;;
+    E2E_LEASE_ACTION_ID=*) lease_action_id="${line#*=}" ;;
+  esac
+done <<< "${action_ids}"
+
+if [[ -z "${tenant_action_id}" || -z "${lease_action_id}" ]]; then
+  echo "Unable to resolve E2E action IDs from Odoo XML IDs."
+  exit 1
+fi
+
+printf 'E2E_TENANT_ACTION_ID=%s\nE2E_LEASE_ACTION_ID=%s\n' \
+  "${tenant_action_id}" "${lease_action_id}" > "${runtime_env_file}"
 
 echo "E2E Property User is ready."
