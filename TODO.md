@@ -244,12 +244,12 @@ units from Odoo.
 
 Goal: improve demand generation while preserving the public/private data boundary.
 
-- [ ] Add public-listing quality checks for unit photos, name, area, rent,
+- [x] Add public-listing quality checks for unit photos, name, area, rent,
       features and non-sensitive location descriptions.
-- [ ] Add manager approval, publication expiry and unpublishing reasons.
-- [ ] Evaluate controlled distribution to a website, property portals and social
+- [x] Add manager approval, publication expiry and unpublishing reasons.
+- [x] Evaluate controlled distribution to a website, property portals and social
       campaigns.
-- [ ] Attribute enquiries and conversions to buildings, units and campaigns.
+- [x] Attribute enquiries and conversions to buildings, units and campaigns.
 
 Done when: Only approved available units are distributed publicly and managers
 can measure their conversion performance.

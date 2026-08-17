@@ -46,6 +46,8 @@
     <menuitem id="menu_commercial_property_handover" name="Delivery / Return Checklists" parent="menu_commercial_property_root" action="commercial_property_management.action_commercial_property_handover" sequence="33" groups="commercial_property_management.group_property_manager"/>
     <menuitem id="menu_commercial_lease_penalty" name="Penalties" parent="menu_commercial_property_root" action="commercial_property_management.action_commercial_lease_penalty" sequence="34" groups="commercial_property_management.group_property_manager"/>
     <menuitem id="menu_commercial_property_portfolio" name="Portfolio Performance" parent="menu_commercial_property_root" action="commercial_property_management.action_commercial_property_portfolio" sequence="41" groups="commercial_property_management.group_property_manager"/>
+    <menuitem id="menu_commercial_property_distribution_channel" name="Distribution Channels" parent="menu_commercial_property_root" action="commercial_property_management.action_commercial_property_distribution_channel" sequence="42" groups="commercial_property_management.group_property_manager"/>
+    <menuitem id="menu_commercial_property_campaign_attribution" name="Campaign Attribution" parent="menu_commercial_property_root" action="commercial_property_management.action_commercial_property_campaign_attribution" sequence="43" groups="commercial_property_management.group_property_manager"/>
 
     <menuitem
         id="menu_commercial_lease"

@@ -11,6 +11,7 @@ const propertyUser = {
   username: process.env.E2E_PROPERTY_USER,
   password: process.env.E2E_PROPERTY_USER_PASSWORD
 };
+const unitActionId = requireCredential(process.env.E2E_UNIT_ACTION_ID, "E2E unit action ID");
 const tenantActionId = requireCredential(process.env.E2E_TENANT_ACTION_ID, "E2E tenant action ID");
 const leaseActionId = requireCredential(process.env.E2E_LEASE_ACTION_ID, "E2E lease action ID");
 const leaseDashboardActionId = requireCredential(
@@ -28,6 +29,8 @@ const maintenanceDashboardActionId = requireCredential(process.env.E2E_MAINTENAN
 const handoverActionId = requireCredential(process.env.E2E_HANDOVER_ACTION_ID, "E2E handover action ID");
 const penaltyActionId = requireCredential(process.env.E2E_PENALTY_ACTION_ID, "E2E penalty action ID");
 const portfolioActionId = requireCredential(process.env.E2E_PORTFOLIO_ACTION_ID, "E2E portfolio action ID");
+const distributionChannelActionId = requireCredential(process.env.E2E_DISTRIBUTION_CHANNEL_ACTION_ID, "E2E distribution channel action ID");
+const campaignAttributionActionId = requireCredential(process.env.E2E_CAMPAIGN_ATTRIBUTION_ACTION_ID, "E2E campaign attribution action ID");
 const moduleIconPath = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "../../addons/commercial_property_management/static/description/icon.png"
@@ -652,6 +655,101 @@ test("an administrator can record a lease penalty, collect it, and renew the lea
   await page.getByRole("button", { name: "Renew", exact: true }).click();
   await expect(page.getByRole("button", { name: "Activate", exact: true })).toBeVisible();
   await expect(page.locator('.o_field_widget[name="renewed_from_id"]')).toBeVisible();
+
+  await expectNoClientOrServerErrors(page, monitored);
+});
+
+test("an administrator can access phase 17 distribution channels and campaign attribution while a Property User cannot", async ({ page }) => {
+  const monitored = monitorPage(page);
+  await login(page, administrator);
+  await openOperationalAction(page, distributionChannelActionId, "commercial.property.distribution.channel");
+  await expect(page.getByRole("button", { name: "New" })).toBeVisible();
+  await page.goto("/web", { waitUntil: "domcontentloaded" });
+  await page.goto(`/web#action=${campaignAttributionActionId}&model=commercial.property.lead&view_type=pivot`, { waitUntil: "domcontentloaded" });
+  await expect(page.getByRole("listitem").getByText("Campaign Attribution", { exact: true })).toBeVisible();
+  await page.goto("/web/session/logout", { waitUntil: "domcontentloaded" });
+  await login(page, propertyUser);
+  await page.locator(".o_main_navbar button").first().click();
+  await page.getByRole("menuitem", { name: "Commercial Properties" }).first().click();
+  await expect(page.getByText("Distribution Channels", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("Campaign Attribution", { exact: true })).toHaveCount(0);
+  await expectNoClientOrServerErrors(page, monitored);
+});
+
+test("an administrator can pass the listing quality checklist, publish a unit and unpublish it with a reason", async ({ page }) => {
+  const monitored = monitorPage(page);
+  const propertyName = `E2E Quality Building ${Date.now()}`;
+  const featureName = `E2E Feature ${Date.now()}`;
+
+  await login(page, administrator);
+  await openProperties(page);
+  await createProperty(page, propertyName);
+
+  await openOperationalAction(page, unitActionId, "commercial.property.unit");
+  await page.locator(".o_searchview_input").fill(propertyName);
+  await page.keyboard.press("Enter");
+  await page.getByRole("cell", { name: propertyName, exact: true }).first().click();
+
+  await page.getByText("Public Listing", { exact: true }).click();
+  await page.getByLabel("Public Name", { exact: true }).fill("Bright downtown suite");
+  await page.getByLabel("Public Monthly Rent", { exact: true }).fill("1800");
+  await page.locator('[name="public_description"] textarea').fill("A bright, well-connected office suite.");
+  await page.locator("#public_feature_ids").fill(featureName);
+  await page.keyboard.press("Enter");
+  await page.getByLabel("Public Location Description?", { exact: true }).fill("Near the central plaza, 5 minutes from the main avenue");
+  await page.locator('input[type="file"]').last().setInputFiles(moduleIconPath);
+  await page.getByRole("button", { name: "Save manually" }).click();
+
+  await expect(page.getByLabel("Quality Checklist Passed?", { exact: true })).toBeChecked();
+
+  await page.getByLabel("Published?", { exact: true }).check();
+  await page.getByRole("button", { name: "Save manually" }).click();
+  await expect(page.locator('.o_field_widget[name="publication_date"]')).not.toHaveText("");
+  await expect(page.locator('.o_field_widget[name="publication_approved_by_id"]')).toContainText("Administrator");
+
+  await page.getByLabel("Published?", { exact: true }).uncheck();
+  await page.getByRole("button", { name: "Save manually" }).click();
+  await expect(page.getByRole("dialog")).toContainText("Select an unpublish reason before unpublishing a listing.");
+  await page.getByRole("button", { name: "Ok" }).click();
+
+  await page.getByRole("combobox", { name: "Unpublish Reason" }).selectOption({ label: "Manager Decision" });
+  await page.getByRole("button", { name: "Save manually" }).click();
+  await expect(page.getByLabel("Published?", { exact: true })).not.toBeChecked();
+
+  await expectNoClientOrServerErrors(page, monitored);
+});
+
+test("an administrator can attribute an enquiry to a distribution channel", async ({ page }) => {
+  const monitored = monitorPage(page);
+  const propertyName = `E2E Campaign Building ${Date.now()}`;
+  const channelName = `E2E Campaign Channel ${Date.now()}`;
+  const prospectName = `E2E Campaign Prospect ${Date.now()}`;
+
+  await login(page, administrator);
+  await openProperties(page);
+  await createProperty(page, propertyName);
+  await page.getByText("Public Listing", { exact: true }).click();
+  await page.getByLabel("Published?", { exact: true }).check();
+  await page.getByLabel("Public Name", { exact: true }).fill("Campaign attribution suite");
+  await page.getByLabel("Public Monthly Rent", { exact: true }).fill("1500");
+  await page.getByPlaceholder("Describe the property for prospective tenants...").fill("Published for campaign attribution testing.");
+  await page.getByRole("button", { name: "Save manually" }).click();
+
+  await openOperationalAction(page, distributionChannelActionId, "commercial.property.distribution.channel");
+  await page.locator("button.o_list_button_add").click();
+  await page.getByLabel("Name", { exact: true }).fill(channelName);
+  await page.getByRole("button", { name: "Save manually" }).click();
+
+  await openOperationalAction(page, enquiryActionId, "commercial.property.lead");
+  await page.locator("button.o_list_button_add").click();
+  await page.locator('[name="name"] input').fill(prospectName);
+  await page.getByLabel("Phone", { exact: true }).fill("+15555550123");
+  await page.getByRole("combobox", { name: "Commercial Unit" }).fill(propertyName);
+  await page.getByRole("option", { name: propertyName, exact: true }).click();
+  await page.getByRole("combobox", { name: "Campaign / Channel" }).fill(channelName);
+  await page.getByRole("option", { name: channelName, exact: true }).click();
+  await page.getByRole("button", { name: "Save manually" }).click();
+  await expect(page.getByRole("combobox", { name: "Campaign / Channel" })).toHaveValue(channelName);
 
   await expectNoClientOrServerErrors(page, monitored);
 });

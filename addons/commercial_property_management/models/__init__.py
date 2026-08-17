@@ -9,5 +9,6 @@ from . import commercial_property_maintenance
 from . import commercial_property_handover
 from . import res_config_settings
 from . import commercial_property_feature
+from . import commercial_property_distribution_channel
 from . import commercial_lease
 from . import res_partner

@@ -84,7 +84,7 @@ test("a consented enquiry is posted to the encoded public unit URL", async () =>
       return jsonResponse(201, { message: "Your enquiry was received for manager review." });
     },
   });
-  const enquiry = { name: "Ana", phone: "+1555", consent: true, visit_requested: true };
+  const enquiry = { name: "Ana", phone: "+1555", consent: true, visit_requested: true, channel: "Instagram Campaign Q3" };
   assert.deepEqual(await client.submitEnquiry("CP 001", enquiry), { message: "Your enquiry was received for manager review." });
   assert.equal(receivedUrl.pathname, "/api/hermes/properties/CP%20001/enquiries");
   assert.equal(receivedOptions.method, "POST");

@@ -128,6 +128,7 @@ export function createHermesPropertyServer(clientFactory = createPropertyApiClie
         consent: z.literal(true),
         visit_requested: z.boolean().optional(),
         message: z.string().trim().max(2000).optional(),
+        channel: z.string().trim().max(128).optional(),
       },
     },
     async ({ property_code: propertyCode, ...enquiry }) => toolResult(await clientFactory().submitEnquiry(propertyCode, enquiry)),

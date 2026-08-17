@@ -107,8 +107,8 @@ class HermesPropertyController(http.Controller):
             payload = None
         if not isinstance(payload, dict):
             return self._error(400, "invalid_parameter", "A JSON object is required.")
-        allowed = {"name", "phone", "email", "company_name", "business_activity", "desired_start_date", "message", "visit_requested", "consent", "website"}
-        text_fields = allowed - {"consent", "visit_requested", "desired_start_date"}
+        allowed = {"name", "phone", "email", "company_name", "business_activity", "desired_start_date", "message", "visit_requested", "consent", "website", "channel"}
+        text_fields = allowed - {"consent", "visit_requested", "desired_start_date", "channel"}
         if (
             payload.get("consent") is not True
             or not isinstance(payload.get("name"), str)
@@ -119,12 +119,13 @@ class HermesPropertyController(http.Controller):
             or any(not isinstance(payload[field], str) for field in text_fields if field in payload)
             or ("visit_requested" in payload and not isinstance(payload["visit_requested"], bool))
             or ("website" in payload and not isinstance(payload["website"], str))
+            or ("channel" in payload and not isinstance(payload["channel"], str))
         ):
             return self._error(400, "invalid_parameter", "Name, phone and explicit consent are required.")
         if payload.get("website"):
             self.env["commercial.property.integration.alert"].raise_alert(request.env, "api", "api-abuse-honeypot", "Public enquiry abuse detected", "warning", "Honeypot field was populated.")
             return self._json_response({"message": "Your enquiry was received for manager review."}, status=202)
-        if any(len(payload.get(field, "")) > maximum for field, maximum in {"name": 128, "phone": 64, "email": 254, "company_name": 256, "business_activity": 256, "message": 2000}.items()):
+        if any(len(payload.get(field, "")) > maximum for field, maximum in {"name": 128, "phone": 64, "email": 254, "company_name": 256, "business_activity": 256, "message": 2000, "channel": 128}.items()):
             return self._error(400, "invalid_parameter", "One or more enquiry fields are too long.")
         if payload.get("desired_start_date"):
             try:
@@ -161,5 +162,11 @@ class HermesPropertyController(http.Controller):
                 "public_source_hash": source_hash,
             }
         )
+        if payload.get("channel"):
+            channel = request.env["commercial.property.distribution.channel"].sudo().search(
+                [("name", "=", payload["channel"].strip()), ("active", "=", True)], limit=1
+            )
+            if channel:
+                values["source_channel_id"] = channel.id
         request.env["commercial.property.lead"].sudo().create(values)
         return self._json_response({"message": "Your enquiry was received for manager review."}, status=201)

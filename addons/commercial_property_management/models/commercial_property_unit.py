@@ -33,7 +33,33 @@ class CommercialPropertyUnit(models.Model):
     public_description = fields.Text(string="Public Description", translate=True)
     public_monthly_rent = fields.Monetary(string="Public Monthly Rent")
     public_feature_ids = fields.Many2many("commercial.property.feature", string="Public Features")
+    public_location_hint = fields.Char(
+        string="Public Location Description", translate=True,
+        help="Non-sensitive location description for prospects, such as a nearby landmark. Never the exact address.",
+    )
     is_published = fields.Boolean(string="Published", help="Make this available unit visible through the Hermes public API.")
+    publication_quality_ok = fields.Boolean(
+        string="Quality Checklist Passed",
+        compute="_compute_publication_quality_ok", groups="commercial_property_management.group_property_manager",
+        help="True when the listing has a photo, name, description, features, location hint and a positive public rent.",
+    )
+    publication_date = fields.Date(readonly=True, copy=False)
+    publication_approved_by_id = fields.Many2one("res.users", string="Approved By", readonly=True, copy=False)
+    publication_expiry_date = fields.Date(
+        string="Publication Expiry", help="The listing is automatically unpublished after this date.",
+    )
+    unpublish_reason = fields.Selection(
+        [("manager_decision", "Manager Decision"), ("leased", "Leased"), ("quality_issue", "Quality Issue"), ("expired", "Expired"), ("other", "Other")],
+        copy=False,
+    )
+    unpublish_notes = fields.Text(copy=False)
+    distribution_channel_ids = fields.Many2many(
+        "commercial.property.distribution.channel",
+        relation="commercial_property_unit_distribution_channel_rel",
+        string="Distribution Channels",
+        groups="commercial_property_management.group_property_manager",
+        help="Channels this unit has been shared to, such as a website, property portal or social campaign.",
+    )
     lease_ids = fields.One2many("commercial.lease", "unit_id", string="Lease History", copy=False)
     reservation_ids = fields.One2many("commercial.property.reservation", "unit_id", string="Reservations", copy=False)
     maintenance_ids = fields.One2many(
@@ -72,10 +98,25 @@ class CommercialPropertyUnit(models.Model):
 
     @api.model_create_multi
     def create(self, vals_list):
+        today = fields.Date.context_today(self)
         for vals in vals_list:
             if not vals.get("code"):
                 vals["code"] = self.env["ir.sequence"].next_by_code("commercial.property.unit") or _("New")
+            if vals.get("is_published"):
+                vals.setdefault("publication_date", today)
+                vals.setdefault("publication_approved_by_id", self.env.user.id)
         return super().create(vals_list)
+
+    def write(self, vals):
+        if "is_published" in vals and not vals["is_published"]:
+            if not vals.get("unpublish_reason") and self.filtered("is_published"):
+                raise ValidationError(_("Select an unpublish reason before unpublishing a listing."))
+        elif vals.get("is_published"):
+            vals.setdefault("publication_date", fields.Date.context_today(self))
+            vals.setdefault("publication_approved_by_id", self.env.user.id)
+            vals.setdefault("unpublish_reason", False)
+            vals.setdefault("unpublish_notes", False)
+        return super().write(vals)
 
     @api.constrains("area", "monthly_rent")
     def _check_unit_values(self):
@@ -132,6 +173,29 @@ class CommercialPropertyUnit(models.Model):
         for unit in self:
             unit.vacancy_days = (today - unit.vacant_since).days if unit.state == "available" and unit.vacant_since else 0
 
+    @api.depends(
+        "image_1920", "public_name", "public_description", "public_monthly_rent",
+        "public_feature_ids", "public_location_hint",
+    )
+    def _compute_publication_quality_ok(self):
+        for unit in self:
+            unit.publication_quality_ok = bool(
+                unit.image_1920
+                and unit.public_name
+                and unit.public_description
+                and unit.public_monthly_rent > 0
+                and unit.public_feature_ids
+                and unit.public_location_hint
+            )
+
+    @api.model
+    def _cron_expire_publications(self):
+        today = fields.Date.context_today(self)
+        expired = self.search(
+            [("is_published", "=", True), ("publication_expiry_date", "!=", False), ("publication_expiry_date", "<", today)]
+        )
+        expired.write({"is_published": False, "unpublish_reason": "expired"})
+
     def _sync_availability_from_leases(self):
         today = fields.Date.context_today(self)
         for unit in self:
@@ -168,6 +232,7 @@ class CommercialPropertyUnit(models.Model):
             "building_name": self.property_id.name,
             "unit_name": self.name,
             "entrance_description": self.entrance_description or None,
+            "location_hint": self.public_location_hint or None,
             "available_from": fields.Date.to_string(self.available_date) if self.available_date else None,
         }
 

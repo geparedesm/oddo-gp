@@ -30,6 +30,10 @@ class CommercialPropertyLead(models.Model):
     public_source_hash = fields.Char(string="Public Source Hash", readonly=True, copy=False, index=True)
     sla_alerted_at = fields.Datetime(string="SLA Alerted At", readonly=True, copy=False)
     source = fields.Selection([("whatsapp", "WhatsApp"), ("manual", "Manual")], required=True, default="manual", index=True)
+    source_channel_id = fields.Many2one(
+        "commercial.property.distribution.channel", string="Campaign / Channel", index=True,
+        help="Which website, property portal or social campaign this enquiry is attributed to.",
+    )
     visit_requested_at = fields.Datetime(string="Visit Requested At", readonly=True, copy=False)
     assigned_user_id = fields.Many2one("res.users", string="Assigned Manager", tracking=True, index=True)
     state = fields.Selection(
