@@ -64,4 +64,16 @@
         <field name="domain_force">[('company_id', 'in', company_ids)]</field>
         <field name="groups" eval="[(4, ref('commercial_property_management.group_property_manager'))]"/>
     </record>
+    <record id="commercial_property_application_company_rule" model="ir.rule">
+        <field name="name">Commercial Property Application multi-company access</field>
+        <field name="model_id" ref="model_commercial_property_application"/>
+        <field name="domain_force">[('company_id', 'in', company_ids)]</field>
+        <field name="groups" eval="[(4, ref('commercial_property_management.group_property_manager'))]"/>
+    </record>
+    <record id="commercial_property_application_document_company_rule" model="ir.rule">
+        <field name="name">Commercial Property Application Document multi-company access</field>
+        <field name="model_id" ref="model_commercial_property_application_document"/>
+        <field name="domain_force">[('company_id', 'in', company_ids)]</field>
+        <field name="groups" eval="[(4, ref('commercial_property_management.group_property_manager'))]"/>
+    </record>
 </odoo>

@@ -21,6 +21,7 @@ const enquiryActionId = requireCredential(process.env.E2E_ENQUIRY_ACTION_ID, "E2
 const visitActionId = requireCredential(process.env.E2E_VISIT_ACTION_ID, "E2E visit action ID");
 const reservationActionId = requireCredential(process.env.E2E_RESERVATION_ACTION_ID, "E2E reservation action ID");
 const whatsappPolicyActionId = requireCredential(process.env.E2E_WHATSAPP_POLICY_ACTION_ID, "E2E WhatsApp policy action ID");
+const applicationActionId = requireCredential(process.env.E2E_APPLICATION_ACTION_ID, "E2E application action ID");
 const moduleIconPath = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "../../addons/commercial_property_management/static/description/icon.png"
@@ -420,5 +421,18 @@ test("an administrator can access phase 12 visits and reservations while a Prope
   await page.getByRole("menuitem", { name: "Commercial Properties" }).first().click();
   await expect(page.getByText("Visits", { exact: true })).toHaveCount(0);
   await expect(page.getByText("Reservations", { exact: true })).toHaveCount(0);
+  await expectNoClientOrServerErrors(page, monitored);
+});
+
+test("an administrator can access phase 13 applications while a Property User cannot", async ({ page }) => {
+  const monitored = monitorPage(page);
+  await login(page, administrator);
+  await openOperationalAction(page, applicationActionId, "commercial.property.application");
+  await expect(page.getByRole("button", { name: "New" })).toBeVisible();
+  await page.goto("/web/session/logout", { waitUntil: "domcontentloaded" });
+  await login(page, propertyUser);
+  await page.locator(".o_main_navbar button").first().click();
+  await page.getByRole("menuitem", { name: "Commercial Properties" }).first().click();
+  await expect(page.getByText("Applications", { exact: true })).toHaveCount(0);
   await expectNoClientOrServerErrors(page, monitored);
 });

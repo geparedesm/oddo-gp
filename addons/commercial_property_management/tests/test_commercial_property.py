@@ -1,3 +1,4 @@
+import base64
 from datetime import timedelta
 
 from odoo import fields
@@ -389,6 +390,52 @@ class TestCommercialProperty(TransactionCase):
         self.env["commercial.property.reservation"]._cron_expire_reservations()
         self.assertEqual(reservation.state, "expired")
         self.assertEqual(unit.state, "available")
+
+    def test_approved_application_with_private_document_creates_traceable_draft_lease(self):
+        building = self.env["commercial.property"].with_user(self.manager).create(
+            {"name": "Application Building", "area": 100, "monthly_rent": 1500, "public_name": "Application unit", "public_description": "Published", "public_monthly_rent": 1500, "is_published": True}
+        )
+        lead = self.env["commercial.property.lead"].with_user(self.manager).create(
+            {"name": "Application Prospect", "phone": "+155****0500", "email": "application@example.test", "unit_id": building.default_unit_id.id, "consent_at": fields.Datetime.now(), "source": "whatsapp"}
+        )
+        lead.action_qualify()
+        lead.action_start_review()
+        application = self.env["commercial.property.application"].with_user(self.manager).create(
+            {"lead_id": lead.id, "identity_document_received": True, "financial_document_received": True, "proposed_monthly_rent": 1600, "proposed_start_date": self.today + timedelta(days=1), "proposed_end_date": self.today + timedelta(days=365), "proposal_terms": "Non-binding terms approved by the manager."}
+        )
+        self.env["commercial.property.application.document"].with_user(self.manager).create(
+            {"application_id": application.id, "document_type": "identity", "filename": "identity.pdf", "file": base64.b64encode(b"private application document")}
+        )
+        application.action_submit()
+        application.action_start_review()
+        application.action_approve()
+        self.assertEqual(application.state, "approved")
+        application.action_offer_proposal()
+        application.action_accept_proposal()
+        action = application.action_create_draft_lease()
+        lease = self.env["commercial.lease"].browse(action["res_id"])
+        self.assertEqual(lease.state, "draft")
+        self.assertEqual(lease.application_id, application)
+        self.assertEqual(application.lease_id, lease)
+        with self.assertRaises(AccessError):
+            application.with_user(self.user).read()
+        lease.action_activate()
+        self.assertEqual(lease.state, "active")
+
+    def test_application_cannot_be_approved_until_its_checklist_is_complete(self):
+        building = self.env["commercial.property"].with_user(self.manager).create(
+            {"name": "Incomplete Application Building", "area": 100, "monthly_rent": 1500, "public_name": "Incomplete application unit", "public_description": "Published", "public_monthly_rent": 1500, "is_published": True}
+        )
+        lead = self.env["commercial.property.lead"].with_user(self.manager).create(
+            {"name": "Incomplete Prospect", "phone": "+155****0600", "unit_id": building.default_unit_id.id, "consent_at": fields.Datetime.now(), "source": "whatsapp"}
+        )
+        lead.action_qualify()
+        lead.action_start_review()
+        application = self.env["commercial.property.application"].with_user(self.manager).create({"lead_id": lead.id})
+        application.action_submit()
+        application.action_start_review()
+        with self.assertRaises(ValidationError):
+            application.action_approve()
 
     def test_default_unit_receives_legacy_property_public_listing_updates(self):
         building = self.env["commercial.property"].with_user(self.manager).create(

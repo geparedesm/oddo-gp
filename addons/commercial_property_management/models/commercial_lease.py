@@ -14,6 +14,7 @@ class CommercialLease(models.Model):
     property_id = fields.Many2one("commercial.property", string="Property", required=True, ondelete="restrict", index=True)
     unit_id = fields.Many2one("commercial.property.unit", string="Commercial Unit", required=True, ondelete="restrict", index=True)
     tenant_id = fields.Many2one("res.partner", string="Tenant", required=True, ondelete="restrict", domain="[('is_commercial_tenant', '=', True)]", index=True)
+    application_id = fields.Many2one("commercial.property.application", string="Source Application", ondelete="restrict", readonly=True, copy=False, index=True)
     start_date = fields.Date(required=True, default=fields.Date.context_today)
     end_date = fields.Date(required=True)
     monthly_rent = fields.Monetary(required=True)
@@ -95,6 +96,14 @@ class CommercialLease(models.Model):
                 raise ValidationError(_("A lease tenant must be marked as a Commercial Tenant."))
             if lease.unit_id and lease.property_id != lease.unit_id.property_id:
                 raise ValidationError(_("The commercial unit must belong to the selected property."))
+
+    @api.constrains("application_id")
+    def _check_source_application(self):
+        for lease in self.filtered("application_id"):
+            if lease.application_id.state != "approved" or lease.application_id.proposal_state != "accepted":
+                raise ValidationError(_("A source application must be approved with an accepted proposal."))
+            if lease.application_id.unit_id != lease.unit_id:
+                raise ValidationError(_("The source application must be for the same commercial unit."))
 
     def _ensure_unit_has_no_active_lease(self, unit_id, exclude_lease=None):
         domain = [("unit_id", "=", unit_id), ("state", "=", "active")]

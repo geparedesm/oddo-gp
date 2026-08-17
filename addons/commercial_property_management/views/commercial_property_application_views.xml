@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_commercial_property_application_tree" model="ir.ui.view">
+        <field name="name">commercial.property.application.tree</field>
+        <field name="model">commercial.property.application</field>
+        <field name="arch" type="xml">
+            <tree><field name="name"/><field name="lead_id"/><field name="unit_id"/><field name="applicant_type"/><field name="state" widget="badge"/><field name="proposal_state" widget="badge"/><field name="lease_id"/></tree>
+        </field>
+    </record>
+    <record id="view_commercial_property_application_form" model="ir.ui.view">
+        <field name="name">commercial.property.application.form</field>
+        <field name="model">commercial.property.application</field>
+        <field name="arch" type="xml">
+            <form string="Commercial Property Application"><header>
+                <button name="action_submit" type="object" string="Submit" class="btn-primary" attrs="{'invisible':[('state','!=','draft')]}"/>
+                <button name="action_start_review" type="object" string="Start Review" class="btn-primary" attrs="{'invisible':[('state','!=','submitted')]}"/>
+                <button name="action_approve" type="object" string="Approve" class="btn-primary" attrs="{'invisible':[('state','!=','under_review')]}"/>
+                <button name="action_reject" type="object" string="Reject" attrs="{'invisible':[('state','not in',('submitted','under_review'))]}"/>
+                <button name="action_offer_proposal" type="object" string="Offer Non-binding Proposal" class="btn-primary" attrs="{'invisible':['|',('state','!=','approved'),('proposal_state','!=','draft')]}"/>
+                <button name="action_accept_proposal" type="object" string="Record Proposal Acceptance" attrs="{'invisible':[('proposal_state','!=','offered')]}"/>
+                <button name="action_create_draft_lease" type="object" string="Create Draft Lease" class="btn-primary" attrs="{'invisible':['|',('state','!=','approved'),('proposal_state','!=','accepted')]}"/>
+                <field name="state" widget="statusbar" statusbar_visible="draft,submitted,under_review,approved,rejected"/>
+            </header><sheet><div class="oe_title"><h1><field name="name" readonly="1"/></h1></div>
+                <group><group string="Applicant"><field name="lead_id" options="{'no_create': True}"/><field name="unit_id" readonly="1"/><field name="property_id" readonly="1"/><field name="applicant_type"/></group><group string="Approval"><field name="approved_by_id" readonly="1"/><field name="approved_at" readonly="1"/><field name="tenant_id" readonly="1"/><field name="lease_id" readonly="1"/></group></group>
+                <notebook><page string="Checklist"><group><field name="identity_document_received"/><field name="financial_document_received"/><field name="commercial_reference_received" attrs="{'invisible':[('applicant_type','!=','company')]}"/></group></page><page string="Private Documents"><field name="document_ids"><tree editable="bottom"><field name="document_type"/><field name="filename"/><field name="file" filename="filename"/></tree></field></page><page string="Non-binding Proposal"><group><field name="proposed_monthly_rent" widget="monetary"/><field name="currency_id" invisible="1"/><field name="proposed_start_date"/><field name="proposed_end_date"/><field name="proposal_state" readonly="1"/><field name="proposal_sent_at" readonly="1"/></group><field name="proposal_terms" placeholder="Manager-approved non-binding commercial terms..."/></page></notebook>
+                <div class="oe_chatter"><field name="activity_ids" widget="mail_activity"/><field name="message_ids" widget="mail_thread"/></div>
+            </sheet></form>
+        </field>
+    </record>
+    <record id="view_commercial_property_application_search" model="ir.ui.view">
+        <field name="name">commercial.property.application.search</field>
+        <field name="model">commercial.property.application</field>
+        <field name="arch" type="xml">
+            <search><field name="name"/><field name="lead_id"/><field name="unit_id"/><filter name="approved" string="Approved" domain="[('state','=','approved')]"/><filter name="lease_pending" string="Lease Pending" domain="[('state','=','approved'),('proposal_state','=','accepted'),('lease_id','=',False)]"/></search>
+        </field>
+    </record>
+</odoo>

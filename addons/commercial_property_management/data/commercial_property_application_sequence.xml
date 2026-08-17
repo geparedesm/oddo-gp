@@ -1,0 +1,2 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo><record id="seq_commercial_property_application" model="ir.sequence"><field name="name">Commercial Property Application</field><field name="code">commercial.property.application</field><field name="prefix">CA%(y)s-</field><field name="padding">5</field><field name="company_id" eval="False"/></record></odoo>

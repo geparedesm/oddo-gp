@@ -193,11 +193,11 @@ without granting it automatically through WhatsApp.
 
 Goal: prepare a reviewed prospect for a manager-controlled commercial lease.
 
-- [ ] Add application checklists and approval states for people and companies.
-- [ ] Use a secure authenticated upload flow for documents; never collect them in
+- [x] Add application checklists and approval states for people and companies.
+- [x] Use a secure authenticated upload flow for documents; never collect them in
       WhatsApp.
-- [ ] Generate non-binding proposals from manager-approved terms.
-- [ ] Create only draft leases from approved applications; keep final activation
+- [x] Generate non-binding proposals from manager-approved terms.
+- [x] Create only draft leases from approved applications; keep final activation
       under manager control.
 
 Done when: Every active lease is traceable to an approved application and manual

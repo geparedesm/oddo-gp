@@ -20,6 +20,7 @@ class CommercialPropertyLead(models.Model):
     tenant_id = fields.Many2one("res.partner", string="Tenant Draft", readonly=True, copy=False)
     visit_ids = fields.One2many("commercial.property.visit", "lead_id", string="Visits", copy=False)
     reservation_ids = fields.One2many("commercial.property.reservation", "lead_id", string="Reservations", copy=False)
+    application_ids = fields.One2many("commercial.property.application", "lead_id", string="Applications", copy=False)
     consent_at = fields.Datetime(string="Consent Given At", required=True, readonly=True, copy=False)
     consent_policy_version = fields.Char(string="Consent Policy Version", readonly=True, copy=False)
     consent_purpose = fields.Char(string="Consent Purpose", readonly=True, copy=False)
@@ -114,6 +115,12 @@ class CommercialPropertyLead(models.Model):
         if self.state not in ("qualified", "visit_scheduled", "under_review"):
             raise ValidationError(_("Only qualified or reviewed enquiries can request a reservation."))
         return {"type": "ir.actions.act_window", "name": _("Reservation Request"), "res_model": "commercial.property.reservation", "view_mode": "form", "target": "current", "context": {"default_lead_id": self.id}}
+
+    def action_create_application(self):
+        self.ensure_one()
+        if self.state != "under_review":
+            raise ValidationError(_("Only reviewed enquiries can start an application."))
+        return {"type": "ir.actions.act_window", "name": _("Application"), "res_model": "commercial.property.application", "view_mode": "form", "target": "current", "context": {"default_lead_id": self.id}}
 
     def action_start_review(self):
         self._check_transition("under_review")
