@@ -53,6 +53,11 @@ class CommercialPropertyUnit(models.Model):
         groups="commercial_property_management.group_property_manager",
         help="Internal operational condition. Never exposed through public listings or WhatsApp.",
     )
+    vacant_since = fields.Date(readonly=True, copy=False, default=fields.Date.context_today)
+    vacancy_days = fields.Integer(
+        compute="_compute_vacancy_days", groups="commercial_property_management.group_property_manager",
+        help="Days since this unit last became available. Zero when the unit is not currently available.",
+    )
     current_lease_id = fields.Many2one("commercial.lease", compute="_compute_current_lease", groups="commercial_property_management.group_property_manager")
     current_tenant_id = fields.Many2one("res.partner", compute="_compute_current_lease", groups="commercial_property_management.group_property_manager")
     enquiry_count = fields.Integer(compute="_compute_acquisition_metrics", groups="commercial_property_management.group_property_manager")
@@ -121,6 +126,12 @@ class CommercialPropertyUnit(models.Model):
             else:
                 unit.operational_status = "operational"
 
+    @api.depends("state", "vacant_since")
+    def _compute_vacancy_days(self):
+        today = fields.Date.context_today(self)
+        for unit in self:
+            unit.vacancy_days = (today - unit.vacant_since).days if unit.state == "available" and unit.vacant_since else 0
+
     def _sync_availability_from_leases(self):
         today = fields.Date.context_today(self)
         for unit in self:
@@ -132,6 +143,10 @@ class CommercialPropertyUnit(models.Model):
                 state = "reserved" if active_lease.start_date > today else "rented"
             elif unit.reservation_ids.filtered(lambda reservation: reservation.state == "approved" and reservation.end_date >= today):
                 state = "reserved"
+            if state == "available" and unit.state != "available":
+                unit.vacant_since = today
+            elif state != "available" and unit.vacant_since:
+                unit.vacant_since = False
             if unit.state != state:
                 unit.state = state
             if unit.is_default and unit.property_id.state != state:

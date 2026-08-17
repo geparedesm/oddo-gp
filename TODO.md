@@ -232,10 +232,10 @@ public listings or WhatsApp.
 
 Goal: monitor commercial terms, collection status, vacancy and unit performance.
 
-- [ ] Add manager-controlled deposits, rent adjustments, penalties and renewals.
-- [ ] Evaluate Odoo Accounting integration for invoices, payments and overdue
+- [x] Add manager-controlled deposits, rent adjustments, penalties and renewals.
+- [x] Evaluate Odoo Accounting integration for invoices, payments and overdue
       reminders.
-- [ ] Add occupancy, vacancy, income, delinquency and renewal reporting.
+- [x] Add occupancy, vacancy, income, delinquency and renewal reporting.
 
 Done when: Authorized managers can identify vacant, overdue and high-performing
 units from Odoo.

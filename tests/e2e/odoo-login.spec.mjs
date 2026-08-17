@@ -26,6 +26,8 @@ const integrationAlertActionId = requireCredential(process.env.E2E_INTEGRATION_A
 const maintenanceActionId = requireCredential(process.env.E2E_MAINTENANCE_ACTION_ID, "E2E maintenance action ID");
 const maintenanceDashboardActionId = requireCredential(process.env.E2E_MAINTENANCE_DASHBOARD_ACTION_ID, "E2E maintenance dashboard action ID");
 const handoverActionId = requireCredential(process.env.E2E_HANDOVER_ACTION_ID, "E2E handover action ID");
+const penaltyActionId = requireCredential(process.env.E2E_PENALTY_ACTION_ID, "E2E penalty action ID");
+const portfolioActionId = requireCredential(process.env.E2E_PORTFOLIO_ACTION_ID, "E2E portfolio action ID");
 const moduleIconPath = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "../../addons/commercial_property_management/static/description/icon.png"
@@ -507,6 +509,7 @@ test("an administrator can create, assign and complete a building-wide maintenan
   await page.getByRole("button", { name: "Complete", exact: true }).click();
   await expect(page.getByText("Completed", { exact: true })).toBeVisible();
 
+  await page.goto("/web", { waitUntil: "domcontentloaded" });
   await page.goto(propertyUrl, { waitUntil: "domcontentloaded" });
   await expect(page.locator('.o_field_widget[name="operational_status"]')).toHaveText("Operational");
 
@@ -542,5 +545,113 @@ test("an administrator can complete a delivery checklist and a Property User can
   await page.locator(".o_main_navbar button").first().click();
   await page.getByRole("menuitem", { name: "Commercial Properties" }).first().click();
   await expect(page.getByText("Delivery / Return Checklists", { exact: true })).toHaveCount(0);
+  await expectNoClientOrServerErrors(page, monitored);
+});
+
+test("an administrator can access phase 16 penalties and portfolio performance while a Property User cannot", async ({ page }) => {
+  const monitored = monitorPage(page);
+  await login(page, administrator);
+  await openOperationalAction(page, penaltyActionId, "commercial.lease.penalty");
+  await expect(page.getByRole("button", { name: "New" })).toBeVisible();
+  await page.goto("/web", { waitUntil: "domcontentloaded" });
+  await page.goto(`/web#action=${portfolioActionId}&model=commercial.property&view_type=pivot`, { waitUntil: "domcontentloaded" });
+  await expect(page.getByRole("listitem").getByText("Portfolio Performance", { exact: true })).toBeVisible();
+  await page.goto("/web/session/logout", { waitUntil: "domcontentloaded" });
+  await login(page, propertyUser);
+  await page.locator(".o_main_navbar button").first().click();
+  await page.getByRole("menuitem", { name: "Commercial Properties" }).first().click();
+  await expect(page.getByText("Penalties", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("Portfolio Performance", { exact: true })).toHaveCount(0);
+  await expectNoClientOrServerErrors(page, monitored);
+});
+
+test("an administrator can manage a lease deposit and apply a rent adjustment", async ({ page }) => {
+  const monitored = monitorPage(page);
+  const propertyName = `E2E Financial Building ${Date.now()}`;
+  const tenantName = `E2E Financial Tenant ${Date.now()}`;
+
+  await login(page, administrator);
+  await openProperties(page);
+  await createProperty(page, propertyName);
+
+  await openTenants(page);
+  await page.getByLabel("Name", { exact: true }).fill(tenantName);
+  await page.getByRole("button", { name: "Save manually" }).click();
+
+  await openLeases(page);
+  await page.getByRole("combobox", { name: "Property" }).fill(propertyName);
+  await page.getByRole("option", { name: propertyName, exact: true }).click();
+  await page.getByRole("combobox", { name: "Tenant" }).fill(tenantName);
+  await page.getByRole("option", { name: tenantName, exact: true }).click();
+  await page.getByLabel("Start Date", { exact: true }).fill(dateOffset(-1));
+  await page.getByLabel("End Date", { exact: true }).fill(dateOffset(60));
+  await page.getByLabel("Monthly Rent", { exact: true }).fill("1500");
+  await page.getByRole("button", { name: "Save manually" }).click();
+  await page.getByRole("button", { name: "Activate", exact: true }).click();
+  await expect(page.getByText("Active", { exact: true })).toBeVisible();
+
+  await page.getByLabel("Deposit Amount", { exact: true }).fill("500");
+  await page.getByRole("button", { name: "Save manually" }).click();
+  const depositStatusBadge = page.locator('.o_field_widget[name="deposit_status"]');
+  await page.getByRole("button", { name: "Mark Held", exact: true }).click();
+  await expect(depositStatusBadge).toHaveText("Held");
+  await page.getByRole("button", { name: "Refund", exact: true }).click();
+  await expect(depositStatusBadge).toHaveText("Refunded");
+
+  await page.getByText("Rent Adjustments", { exact: true }).click();
+  await page.getByRole("button", { name: "Add a line" }).click();
+  await page.locator("tr.o_selected_row").locator('[name="new_rent"] input').fill("1800");
+  await page.getByRole("button", { name: "Save manually" }).click();
+  await page.locator("tr").filter({ hasText: "1,800.00" }).getByRole("button", { name: "Apply" }).click();
+  await expect(page.getByLabel("Monthly Rent", { exact: true })).toHaveValue(/1.?800/);
+
+  await expectNoClientOrServerErrors(page, monitored);
+});
+
+test("an administrator can record a lease penalty, collect it, and renew the lease", async ({ page }) => {
+  const monitored = monitorPage(page);
+  const propertyName = `E2E Renewal Building ${Date.now()}`;
+  const tenantName = `E2E Renewal Tenant ${Date.now()}`;
+
+  await login(page, administrator);
+  await openProperties(page);
+  await createProperty(page, propertyName);
+
+  await openTenants(page);
+  await page.getByLabel("Name", { exact: true }).fill(tenantName);
+  await page.getByRole("button", { name: "Save manually" }).click();
+
+  await openLeases(page);
+  await page.getByRole("combobox", { name: "Property" }).fill(propertyName);
+  await page.getByRole("option", { name: propertyName, exact: true }).click();
+  await page.getByRole("combobox", { name: "Tenant" }).fill(tenantName);
+  await page.getByRole("option", { name: tenantName, exact: true }).click();
+  await page.getByLabel("Start Date", { exact: true }).fill(dateOffset(-5));
+  await page.getByLabel("End Date", { exact: true }).fill(dateOffset(10));
+  await page.getByLabel("Monthly Rent", { exact: true }).fill("1200");
+  await page.getByRole("button", { name: "Save manually" }).click();
+  await page.getByRole("button", { name: "Activate", exact: true }).click();
+  await expect(page.getByText("Active", { exact: true })).toBeVisible();
+
+  await page.getByRole("tab", { name: "Penalties" }).click();
+  await expect(page.getByRole("columnheader", { name: "Date" })).toBeVisible();
+  const penaltySelectedRow = page.locator("tr.o_selected_row");
+  await expect(async () => {
+    const errorDialog = page.getByRole("dialog");
+    if (await errorDialog.isVisible().catch(() => false)) {
+      await page.getByRole("button", { name: "Ok" }).click();
+    }
+    await page.getByRole("button", { name: "Add a line" }).click();
+    await expect(penaltySelectedRow).toBeVisible({ timeout: 3000 });
+  }).toPass({ timeout: 20000 });
+  await penaltySelectedRow.locator('[name="amount"] input').fill("150");
+  await page.getByRole("button", { name: "Save manually" }).click();
+  await page.locator("tr").filter({ hasText: "150.00" }).getByRole("button", { name: "Collect" }).click();
+  await expect(page.getByText("Collected", { exact: true })).toBeVisible();
+
+  await page.getByRole("button", { name: "Renew", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Activate", exact: true })).toBeVisible();
+  await expect(page.locator('.o_field_widget[name="renewed_from_id"]')).toBeVisible();
+
   await expectNoClientOrServerErrors(page, monitored);
 });

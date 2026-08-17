@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_commercial_property_portfolio_pivot" model="ir.ui.view">
+        <field name="name">commercial.property.portfolio.pivot</field>
+        <field name="model">commercial.property</field>
+        <field name="arch" type="xml">
+            <pivot string="Portfolio Performance">
+                <field name="property_type" type="row"/>
+                <field name="city" type="row"/>
+                <field name="unit_count" type="measure"/>
+                <field name="occupied_unit_count" type="measure"/>
+                <field name="vacant_unit_count" type="measure"/>
+                <field name="occupancy_rate" type="measure"/>
+                <field name="expected_monthly_income" type="measure"/>
+            </pivot>
+        </field>
+    </record>
+
+    <record id="view_commercial_property_tree_portfolio" model="ir.ui.view">
+        <field name="name">commercial.property.tree.portfolio</field>
+        <field name="model">commercial.property</field>
+        <field name="inherit_id" ref="commercial_property_management.view_commercial_property_tree"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='state']" position="after">
+                <field name="unit_count" optional="hide" groups="commercial_property_management.group_property_manager"/>
+                <field name="occupied_unit_count" optional="hide" groups="commercial_property_management.group_property_manager"/>
+                <field name="vacant_unit_count" optional="hide" groups="commercial_property_management.group_property_manager"/>
+                <field name="occupancy_rate" optional="hide" groups="commercial_property_management.group_property_manager"/>
+                <field name="expected_monthly_income" optional="hide" widget="monetary" groups="commercial_property_management.group_property_manager"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_commercial_property_unit_tree_vacancy" model="ir.ui.view">
+        <field name="name">commercial.property.unit.tree.vacancy</field>
+        <field name="model">commercial.property.unit</field>
+        <field name="inherit_id" ref="commercial_property_management.view_commercial_property_unit_tree"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='state']" position="after">
+                <field name="vacancy_days" optional="hide" groups="commercial_property_management.group_property_manager"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_commercial_property_unit_form_vacancy" model="ir.ui.view">
+        <field name="name">commercial.property.unit.form.vacancy</field>
+        <field name="model">commercial.property.unit</field>
+        <field name="inherit_id" ref="commercial_property_management.view_commercial_property_unit_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='available_date']" position="after">
+                <field name="vacancy_days" readonly="1" groups="commercial_property_management.group_property_manager"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

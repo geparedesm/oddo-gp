@@ -65,6 +65,8 @@ print(f"E2E_INTEGRATION_ALERT_ACTION_ID={env.ref('commercial_property_management
 print(f"E2E_MAINTENANCE_ACTION_ID={env.ref('commercial_property_management.action_commercial_property_maintenance').id}")
 print(f"E2E_MAINTENANCE_DASHBOARD_ACTION_ID={env.ref('commercial_property_management.action_commercial_property_maintenance_dashboard').id}")
 print(f"E2E_HANDOVER_ACTION_ID={env.ref('commercial_property_management.action_commercial_property_handover').id}")
+print(f"E2E_PENALTY_ACTION_ID={env.ref('commercial_property_management.action_commercial_lease_penalty').id}")
+print(f"E2E_PORTFOLIO_ACTION_ID={env.ref('commercial_property_management.action_commercial_property_portfolio').id}")
 PYTHON
 )"
 
@@ -80,6 +82,8 @@ integration_alert_action_id=""
 maintenance_action_id=""
 maintenance_dashboard_action_id=""
 handover_action_id=""
+penalty_action_id=""
+portfolio_action_id=""
 while IFS= read -r line; do
   case "${line}" in
     E2E_TENANT_ACTION_ID=*) tenant_action_id="${line#*=}" ;;
@@ -94,15 +98,17 @@ while IFS= read -r line; do
     E2E_MAINTENANCE_ACTION_ID=*) maintenance_action_id="${line#*=}" ;;
     E2E_MAINTENANCE_DASHBOARD_ACTION_ID=*) maintenance_dashboard_action_id="${line#*=}" ;;
     E2E_HANDOVER_ACTION_ID=*) handover_action_id="${line#*=}" ;;
+    E2E_PENALTY_ACTION_ID=*) penalty_action_id="${line#*=}" ;;
+    E2E_PORTFOLIO_ACTION_ID=*) portfolio_action_id="${line#*=}" ;;
   esac
 done <<< "${action_ids}"
 
-if [[ -z "${tenant_action_id}" || -z "${lease_action_id}" || -z "${lease_dashboard_action_id}" || -z "${enquiry_action_id}" || -z "${visit_action_id}" || -z "${reservation_action_id}" || -z "${whatsapp_policy_action_id}" || -z "${application_action_id}" || -z "${integration_alert_action_id}" || -z "${maintenance_action_id}" || -z "${maintenance_dashboard_action_id}" || -z "${handover_action_id}" ]]; then
+if [[ -z "${tenant_action_id}" || -z "${lease_action_id}" || -z "${lease_dashboard_action_id}" || -z "${enquiry_action_id}" || -z "${visit_action_id}" || -z "${reservation_action_id}" || -z "${whatsapp_policy_action_id}" || -z "${application_action_id}" || -z "${integration_alert_action_id}" || -z "${maintenance_action_id}" || -z "${maintenance_dashboard_action_id}" || -z "${handover_action_id}" || -z "${penalty_action_id}" || -z "${portfolio_action_id}" ]]; then
   echo "Unable to resolve E2E action IDs from Odoo XML IDs."
   exit 1
 fi
 
-printf 'E2E_TENANT_ACTION_ID=%s\nE2E_LEASE_ACTION_ID=%s\nE2E_LEASE_DASHBOARD_ACTION_ID=%s\nE2E_ENQUIRY_ACTION_ID=%s\nE2E_VISIT_ACTION_ID=%s\nE2E_RESERVATION_ACTION_ID=%s\nE2E_WHATSAPP_POLICY_ACTION_ID=%s\nE2E_APPLICATION_ACTION_ID=%s\nE2E_INTEGRATION_ALERT_ACTION_ID=%s\nE2E_MAINTENANCE_ACTION_ID=%s\nE2E_MAINTENANCE_DASHBOARD_ACTION_ID=%s\nE2E_HANDOVER_ACTION_ID=%s\n' \
-  "${tenant_action_id}" "${lease_action_id}" "${lease_dashboard_action_id}" "${enquiry_action_id}" "${visit_action_id}" "${reservation_action_id}" "${whatsapp_policy_action_id}" "${application_action_id}" "${integration_alert_action_id}" "${maintenance_action_id}" "${maintenance_dashboard_action_id}" "${handover_action_id}" > "${runtime_env_file}"
+printf 'E2E_TENANT_ACTION_ID=%s\nE2E_LEASE_ACTION_ID=%s\nE2E_LEASE_DASHBOARD_ACTION_ID=%s\nE2E_ENQUIRY_ACTION_ID=%s\nE2E_VISIT_ACTION_ID=%s\nE2E_RESERVATION_ACTION_ID=%s\nE2E_WHATSAPP_POLICY_ACTION_ID=%s\nE2E_APPLICATION_ACTION_ID=%s\nE2E_INTEGRATION_ALERT_ACTION_ID=%s\nE2E_MAINTENANCE_ACTION_ID=%s\nE2E_MAINTENANCE_DASHBOARD_ACTION_ID=%s\nE2E_HANDOVER_ACTION_ID=%s\nE2E_PENALTY_ACTION_ID=%s\nE2E_PORTFOLIO_ACTION_ID=%s\n' \
+  "${tenant_action_id}" "${lease_action_id}" "${lease_dashboard_action_id}" "${enquiry_action_id}" "${visit_action_id}" "${reservation_action_id}" "${whatsapp_policy_action_id}" "${application_action_id}" "${integration_alert_action_id}" "${maintenance_action_id}" "${maintenance_dashboard_action_id}" "${handover_action_id}" "${penalty_action_id}" "${portfolio_action_id}" > "${runtime_env_file}"
 
 echo "E2E Property User is ready."

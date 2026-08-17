@@ -88,6 +88,17 @@ class CommercialProperty(models.Model):
         groups="commercial_property_management.group_property_manager",
         help="Building-wide operational condition, based on common-area tickets. Never exposed through public listings or WhatsApp.",
     )
+    unit_count = fields.Integer(compute="_compute_portfolio_metrics", store=True, groups="commercial_property_management.group_property_manager")
+    occupied_unit_count = fields.Integer(compute="_compute_portfolio_metrics", store=True, groups="commercial_property_management.group_property_manager")
+    vacant_unit_count = fields.Integer(compute="_compute_portfolio_metrics", store=True, groups="commercial_property_management.group_property_manager")
+    occupancy_rate = fields.Float(
+        compute="_compute_portfolio_metrics", store=True, groups="commercial_property_management.group_property_manager",
+        help="Percentage of commercial units currently rented or reserved.",
+    )
+    expected_monthly_income = fields.Monetary(
+        compute="_compute_portfolio_metrics", store=True, groups="commercial_property_management.group_property_manager",
+        help="Sum of monthly rent for units currently rented or reserved.",
+    )
     current_lease_id = fields.Many2one(
         "commercial.lease",
         string="Current Lease",
@@ -201,6 +212,24 @@ class CommercialProperty(models.Model):
             )
             property_record.open_maintenance_count = len(open_tickets)
             property_record.operational_status = "under_maintenance" if open_tickets else "operational"
+
+    @api.depends(
+        "unit_ids.state", "unit_ids.monthly_rent", "unit_ids.active",
+        "unit_ids.lease_ids.state", "unit_ids.lease_ids.monthly_rent",
+    )
+    def _compute_portfolio_metrics(self):
+        for property_record in self:
+            units = property_record.unit_ids
+            occupied = units.filtered(lambda unit: unit.state in ("rented", "reserved"))
+            property_record.unit_count = len(units)
+            property_record.occupied_unit_count = len(occupied)
+            property_record.vacant_unit_count = len(units.filtered(lambda unit: unit.state == "available"))
+            property_record.occupancy_rate = (len(occupied) / len(units) * 100) if units else 0.0
+            income = 0
+            for unit in occupied:
+                active_lease = unit.lease_ids.filtered(lambda lease: lease.state == "active")[:1]
+                income += active_lease.monthly_rent or unit.monthly_rent
+            property_record.expected_monthly_income = income
 
     def _sync_availability_from_leases(self):
         """Keep the inventory status aligned with the property's confirmed lease."""

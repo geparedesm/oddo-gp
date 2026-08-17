@@ -44,6 +44,8 @@
     <menuitem id="menu_commercial_property_maintenance" name="Maintenance" parent="menu_commercial_property_root" action="commercial_property_management.action_commercial_property_maintenance" sequence="31" groups="commercial_property_management.group_property_manager"/>
     <menuitem id="menu_commercial_property_maintenance_dashboard" name="Maintenance Dashboard" parent="menu_commercial_property_root" action="commercial_property_management.action_commercial_property_maintenance_dashboard" sequence="32" groups="commercial_property_management.group_property_manager"/>
     <menuitem id="menu_commercial_property_handover" name="Delivery / Return Checklists" parent="menu_commercial_property_root" action="commercial_property_management.action_commercial_property_handover" sequence="33" groups="commercial_property_management.group_property_manager"/>
+    <menuitem id="menu_commercial_lease_penalty" name="Penalties" parent="menu_commercial_property_root" action="commercial_property_management.action_commercial_lease_penalty" sequence="34" groups="commercial_property_management.group_property_manager"/>
+    <menuitem id="menu_commercial_property_portfolio" name="Portfolio Performance" parent="menu_commercial_property_root" action="commercial_property_management.action_commercial_property_portfolio" sequence="41" groups="commercial_property_management.group_property_manager"/>
 
     <menuitem
         id="menu_commercial_lease"
