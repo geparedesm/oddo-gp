@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="web_login_prevent_duplicate_submit" inherit_id="web.login" name="Prevent duplicate login submissions">
+        <xpath expr="//form[hasclass('oe_login_form')]" position="attributes">
+            <attribute name="onsubmit">if (this.dataset.submitting) { return false; } this.dataset.submitting = '1'; this.action = '/web/login' + location.hash; Array.prototype.forEach.call(this.querySelectorAll('button[type=&quot;submit&quot;]'), function (button) { button.disabled = true; button.setAttribute('aria-disabled', 'true'); }); return true;</attribute>
+        </xpath>
+    </template>
+</odoo>
