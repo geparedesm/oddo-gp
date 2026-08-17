@@ -38,6 +38,12 @@ class CommercialPropertyUnit(models.Model):
     reservation_ids = fields.One2many("commercial.property.reservation", "unit_id", string="Reservations", copy=False)
     current_lease_id = fields.Many2one("commercial.lease", compute="_compute_current_lease", groups="commercial_property_management.group_property_manager")
     current_tenant_id = fields.Many2one("res.partner", compute="_compute_current_lease", groups="commercial_property_management.group_property_manager")
+    enquiry_count = fields.Integer(compute="_compute_acquisition_metrics", groups="commercial_property_management.group_property_manager")
+    responded_enquiry_count = fields.Integer(compute="_compute_acquisition_metrics", groups="commercial_property_management.group_property_manager")
+    completed_visit_count = fields.Integer(compute="_compute_acquisition_metrics", groups="commercial_property_management.group_property_manager")
+    approved_reservation_count = fields.Integer(compute="_compute_acquisition_metrics", groups="commercial_property_management.group_property_manager")
+    contract_count = fields.Integer(compute="_compute_acquisition_metrics", groups="commercial_property_management.group_property_manager")
+    lost_enquiry_count = fields.Integer(compute="_compute_acquisition_metrics", groups="commercial_property_management.group_property_manager")
     company_id = fields.Many2one(related="property_id.company_id", store=True, readonly=True, index=True)
 
     _sql_constraints = [("commercial_property_unit_code_unique", "unique(code)", "The unit reference must be unique.")]
@@ -71,6 +77,20 @@ class CommercialPropertyUnit(models.Model):
             lease = unit.lease_ids.filtered(lambda item: item.state == "active")[:1]
             unit.current_lease_id = lease
             unit.current_tenant_id = lease.tenant_id
+
+    def _compute_acquisition_metrics(self):
+        Lead = self.env["commercial.property.lead"]
+        Visit = self.env["commercial.property.visit"]
+        Reservation = self.env["commercial.property.reservation"]
+        Lease = self.env["commercial.lease"]
+        for unit in self:
+            domain = [("unit_id", "=", unit.id)]
+            unit.enquiry_count = Lead.search_count(domain)
+            unit.responded_enquiry_count = Lead.search_count(domain + [("state", "!=", "new")])
+            unit.completed_visit_count = Visit.search_count(domain + [("state", "=", "completed")])
+            unit.approved_reservation_count = Reservation.search_count(domain + [("state", "=", "approved")])
+            unit.contract_count = Lease.search_count(domain + [("state", "in", ("draft", "active", "expired"))])
+            unit.lost_enquiry_count = Lead.search_count(domain + [("state", "=", "rejected")])
 
     def _sync_availability_from_leases(self):
         today = fields.Date.context_today(self)

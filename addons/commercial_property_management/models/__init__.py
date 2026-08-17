@@ -4,6 +4,7 @@ from . import commercial_property_lead
 from . import commercial_property_visit
 from . import commercial_property_reservation
 from . import commercial_property_application
+from . import commercial_property_integration_alert
 from . import res_config_settings
 from . import commercial_property_feature
 from . import commercial_lease

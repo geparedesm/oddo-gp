@@ -26,6 +26,9 @@ class CommercialPropertyLead(models.Model):
     consent_purpose = fields.Char(string="Consent Purpose", readonly=True, copy=False)
     retention_deadline = fields.Datetime(string="Personal Data Retention Deadline", readonly=True, copy=False, index=True)
     anonymized_at = fields.Datetime(string="Personal Data Anonymized At", readonly=True, copy=False, index=True)
+    public_request_key_hash = fields.Char(string="Public Request Idempotency Hash", readonly=True, copy=False, index=True)
+    public_source_hash = fields.Char(string="Public Source Hash", readonly=True, copy=False, index=True)
+    sla_alerted_at = fields.Datetime(string="SLA Alerted At", readonly=True, copy=False)
     source = fields.Selection([("whatsapp", "WhatsApp"), ("manual", "Manual")], required=True, default="manual", index=True)
     visit_requested_at = fields.Datetime(string="Visit Requested At", readonly=True, copy=False)
     assigned_user_id = fields.Many2one("res.users", string="Assigned Manager", tracking=True, index=True)
@@ -33,6 +36,7 @@ class CommercialPropertyLead(models.Model):
         [("new", "New"), ("qualified", "Qualified"), ("visit_scheduled", "Visit Scheduled"), ("under_review", "Under Review"), ("rejected", "Rejected"), ("converted", "Converted")],
         default="new", required=True, tracking=True, index=True,
     )
+    lost_reason = fields.Selection([("price", "Price"), ("location", "Location"), ("timing", "Timing"), ("requirements", "Requirements"), ("no_response", "No Response"), ("other", "Other")], string="Lost Reason", tracking=True, index=True)
     company_id = fields.Many2one(related="unit_id.company_id", store=True, readonly=True, index=True)
 
     def _policy_int(self, key, default):
@@ -91,13 +95,24 @@ class CommercialPropertyLead(models.Model):
         if "state" in vals:
             self._check_transition(vals["state"])
             if vals["state"] == "rejected":
+                if not vals.get("lost_reason") and any(not lead.lost_reason for lead in self):
+                    raise ValidationError(_("Select a lost reason before rejecting an enquiry."))
                 vals["retention_deadline"] = self._retention_deadline("rejected")
         return super().write(vals)
 
     def _cron_anonymize_expired_personal_data(self):
         leads = self.sudo().search([("anonymized_at", "=", False), ("retention_deadline", "!=", False), ("retention_deadline", "<=", fields.Datetime.now())])
         for lead in leads:
-            lead.write({"name": _("Anonymized prospect"), "phone": False, "email": False, "company_name": False, "business_activity": False, "desired_start_date": False, "message": False, "visit_requested_at": False, "anonymized_at": fields.Datetime.now()})
+            lead.write({"name": _("Anonymized prospect"), "phone": False, "email": False, "company_name": False, "business_activity": False, "desired_start_date": False, "message": False, "visit_requested_at": False, "public_source_hash": False, "anonymized_at": fields.Datetime.now()})
+
+    @api.model
+    def _cron_alert_overdue_public_enquiries(self):
+        hours = self._policy_int("commercial_property_management.whatsapp_response_sla_business_hours", 8)
+        deadline = fields.Datetime.subtract(fields.Datetime.now(), hours=hours)
+        overdue = self.sudo().search([("source", "=", "whatsapp"), ("state", "=", "new"), ("create_date", "<=", deadline), ("sla_alerted_at", "=", False)])
+        for lead in overdue:
+            self.env["commercial.property.integration.alert"].raise_alert(self.env, "queue", "lead-sla-%s" % lead.id, _("Public enquiry response SLA exceeded"), "critical", _("A WhatsApp enquiry remains unreviewed after the configured response SLA."))
+        overdue.write({"sla_alerted_at": fields.Datetime.now()})
 
     def action_qualify(self):
         self._check_transition("qualified")

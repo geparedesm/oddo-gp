@@ -13,9 +13,10 @@ class ResConfigSettings(models.TransientModel):
     whatsapp_consent_audit_retention_days = fields.Integer(string="Consent Audit Retention (days)", config_parameter="commercial_property_management.whatsapp_consent_audit_retention_days")
     whatsapp_response_sla_business_hours = fields.Integer(string="First Response SLA (business hours)", config_parameter="commercial_property_management.whatsapp_response_sla_business_hours")
     whatsapp_visit_hours = fields.Char(string="Visit Hours", config_parameter="commercial_property_management.whatsapp_visit_hours")
+    whatsapp_public_rate_limit = fields.Integer(string="Public Enquiry Rate Limit (per hour)", config_parameter="commercial_property_management.whatsapp_public_rate_limit")
 
-    @api.constrains("whatsapp_lead_retention_days", "whatsapp_rejected_retention_days", "whatsapp_consent_audit_retention_days", "whatsapp_response_sla_business_hours")
+    @api.constrains("whatsapp_lead_retention_days", "whatsapp_rejected_retention_days", "whatsapp_consent_audit_retention_days", "whatsapp_response_sla_business_hours", "whatsapp_public_rate_limit")
     def _check_positive_policy_intervals(self):
         for settings in self:
-            if any(value < 1 for value in [settings.whatsapp_lead_retention_days, settings.whatsapp_rejected_retention_days, settings.whatsapp_consent_audit_retention_days, settings.whatsapp_response_sla_business_hours]):
+            if any(value < 1 for value in [settings.whatsapp_lead_retention_days, settings.whatsapp_rejected_retention_days, settings.whatsapp_consent_audit_retention_days, settings.whatsapp_response_sla_business_hours, settings.whatsapp_public_rate_limit]):
                 raise ValidationError("Retention periods and SLA must be at least one day or hour.")

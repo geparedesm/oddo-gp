@@ -1,4 +1,5 @@
 import path from "node:path";
+import { randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -41,7 +42,7 @@ export function createPropertyApiClient({
 
     const response = await fetchImpl(url, {
       method: requestOptions.method || "GET",
-      headers: { Authorization: `Bearer ${authorizationToken}`, ...(requestOptions.body ? { "Content-Type": "application/json" } : {}) },
+      headers: { Authorization: `Bearer ${authorizationToken}`, "X-Hermes-Channel": "mcp", ...(requestOptions.body ? { "Content-Type": "application/json", "Idempotency-Key": requestOptions.idempotencyKey || randomUUID() } : {}) },
       body: requestOptions.body ? JSON.stringify(requestOptions.body) : undefined,
     });
     const payload = await response.json().catch(() => null);

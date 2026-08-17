@@ -40,6 +40,7 @@
     <menuitem id="menu_commercial_property_visit" name="Visits" parent="menu_commercial_property_root" action="commercial_property_management.action_commercial_property_visit" sequence="26" groups="commercial_property_management.group_property_manager"/>
     <menuitem id="menu_commercial_property_reservation" name="Reservations" parent="menu_commercial_property_root" action="commercial_property_management.action_commercial_property_reservation" sequence="27" groups="commercial_property_management.group_property_manager"/>
     <menuitem id="menu_commercial_property_application" name="Applications" parent="menu_commercial_property_root" action="commercial_property_management.action_commercial_property_application" sequence="28" groups="commercial_property_management.group_property_manager"/>
+    <menuitem id="menu_commercial_property_integration_alert" name="Integration Alerts" parent="menu_commercial_property_root" action="commercial_property_management.action_commercial_property_integration_alert" sequence="29" groups="commercial_property_management.group_property_manager"/>
 
     <menuitem
         id="menu_commercial_lease"

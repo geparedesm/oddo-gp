@@ -207,12 +207,12 @@ manager decision.
 
 Goal: measure conversion while protecting the public automation channel.
 
-- [ ] Measure enquiry, response, visit, reservation, contract and lost-reason
+- [x] Measure enquiry, response, visit, reservation, contract and lost-reason
       conversion by building and unit.
-- [ ] Add rate limits, idempotency, abuse detection and retention/anonymization
+- [x] Add rate limits, idempotency, abuse detection and retention/anonymization
       for public leads.
-- [ ] Restrict WhatsApp automation to safe lead-intake capabilities.
-- [ ] Add alerts for API, MCP and queue failures.
+- [x] Restrict WhatsApp automation to safe lead-intake capabilities.
+- [x] Add alerts for API, MCP and queue failures.
 
 Done when: Managers can measure demand and the public channel is monitored and
 privacy-compliant.

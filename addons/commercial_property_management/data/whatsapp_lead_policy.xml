@@ -8,4 +8,5 @@
     <record id="parameter_whatsapp_consent_audit_retention_days" model="ir.config_parameter"><field name="key">commercial_property_management.whatsapp_consent_audit_retention_days</field><field name="value">730</field></record>
     <record id="parameter_whatsapp_response_sla_business_hours" model="ir.config_parameter"><field name="key">commercial_property_management.whatsapp_response_sla_business_hours</field><field name="value">8</field></record>
     <record id="parameter_whatsapp_visit_hours" model="ir.config_parameter"><field name="key">commercial_property_management.whatsapp_visit_hours</field><field name="value">Monday to Saturday, 09:00 to 18:00</field></record>
+    <record id="parameter_whatsapp_public_rate_limit" model="ir.config_parameter"><field name="key">commercial_property_management.whatsapp_public_rate_limit</field><field name="value">5</field></record>
 </odoo>
