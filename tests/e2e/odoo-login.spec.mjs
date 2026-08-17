@@ -23,6 +23,9 @@ const reservationActionId = requireCredential(process.env.E2E_RESERVATION_ACTION
 const whatsappPolicyActionId = requireCredential(process.env.E2E_WHATSAPP_POLICY_ACTION_ID, "E2E WhatsApp policy action ID");
 const applicationActionId = requireCredential(process.env.E2E_APPLICATION_ACTION_ID, "E2E application action ID");
 const integrationAlertActionId = requireCredential(process.env.E2E_INTEGRATION_ALERT_ACTION_ID, "E2E integration alert action ID");
+const maintenanceActionId = requireCredential(process.env.E2E_MAINTENANCE_ACTION_ID, "E2E maintenance action ID");
+const maintenanceDashboardActionId = requireCredential(process.env.E2E_MAINTENANCE_DASHBOARD_ACTION_ID, "E2E maintenance dashboard action ID");
+const handoverActionId = requireCredential(process.env.E2E_HANDOVER_ACTION_ID, "E2E handover action ID");
 const moduleIconPath = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "../../addons/commercial_property_management/static/description/icon.png"
@@ -448,5 +451,96 @@ test("an administrator can access phase 14 integration alerts while a Property U
   await page.locator(".o_main_navbar button").first().click();
   await page.getByRole("menuitem", { name: "Commercial Properties" }).first().click();
   await expect(page.getByText("Integration Alerts", { exact: true })).toHaveCount(0);
+  await expectNoClientOrServerErrors(page, monitored);
+});
+
+test("an administrator can access phase 15 maintenance and handover checklists while a Property User cannot", async ({ page }) => {
+  const monitored = monitorPage(page);
+  await login(page, administrator);
+  await openOperationalAction(page, maintenanceActionId, "commercial.property.maintenance");
+  await expect(page.getByRole("button", { name: "New" })).toBeVisible();
+  await page.goto("/web", { waitUntil: "domcontentloaded" });
+  await page.goto(`/web#action=${maintenanceDashboardActionId}&model=commercial.property.maintenance&view_type=pivot`, { waitUntil: "domcontentloaded" });
+  await expect(page.getByRole("listitem").getByText("Maintenance Dashboard", { exact: true })).toBeVisible();
+  await openOperationalAction(page, handoverActionId, "commercial.property.handover");
+  await expect(page.getByRole("button", { name: "New" })).toBeVisible();
+  await page.goto("/web/session/logout", { waitUntil: "domcontentloaded" });
+  await login(page, propertyUser);
+  await page.locator(".o_main_navbar button").first().click();
+  await page.getByRole("menuitem", { name: "Commercial Properties" }).first().click();
+  await expect(page.getByText("Maintenance", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("Delivery / Return Checklists", { exact: true })).toHaveCount(0);
+  await expectNoClientOrServerErrors(page, monitored);
+});
+
+test("an administrator can create, assign and complete a building-wide maintenance ticket", async ({ page }) => {
+  const monitored = monitorPage(page);
+  const propertyName = `E2E Maintenance Building ${Date.now()}`;
+
+  await login(page, administrator);
+  await openProperties(page);
+  await createProperty(page, propertyName);
+  await expect(page.locator('.o_field_widget[name="operational_status"]')).toHaveText("Operational");
+  await page.waitForURL(/id=\d+/);
+  const propertyUrl = page.url();
+
+  await openOperationalAction(page, maintenanceActionId, "commercial.property.maintenance");
+  await page.locator("button.o_list_button_add").click();
+  await page.getByRole("combobox", { name: "Building" }).fill(propertyName);
+  await page.getByRole("option", { name: propertyName, exact: true }).click();
+  await page.getByLabel("Description", { exact: true }).fill("Replace the lobby air conditioning filter.");
+  await page.getByRole("combobox", { name: "Internal Owner" }).fill("Administrator");
+  await page.getByRole("option", { name: "Administrator", exact: true }).click();
+  await page.getByRole("button", { name: "Save manually" }).click();
+
+  await page.getByRole("button", { name: "Assign", exact: true }).click();
+  await expect(page.getByText("Assigned", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Start Work", exact: true }).click();
+  await expect(page.getByText("In Progress", { exact: true })).toBeVisible();
+
+  await page.getByRole("button", { name: "Complete", exact: true }).click();
+  await expect(page.getByRole("dialog")).toContainText("Add completion notes before closing a maintenance ticket.");
+  await page.getByRole("button", { name: "Ok" }).click();
+
+  await page.getByLabel("Completion Notes", { exact: true }).fill("Filter replaced and airflow verified.");
+  await page.getByRole("button", { name: "Save manually" }).click();
+  await page.getByRole("button", { name: "Complete", exact: true }).click();
+  await expect(page.getByText("Completed", { exact: true })).toBeVisible();
+
+  await page.goto(propertyUrl, { waitUntil: "domcontentloaded" });
+  await expect(page.locator('.o_field_widget[name="operational_status"]')).toHaveText("Operational");
+
+  await expectNoClientOrServerErrors(page, monitored);
+});
+
+test("an administrator can complete a delivery checklist and a Property User cannot see it", async ({ page }) => {
+  const monitored = monitorPage(page);
+  const propertyName = `E2E Handover Building ${Date.now()}`;
+
+  await login(page, administrator);
+  await openProperties(page);
+  await createProperty(page, propertyName);
+
+  await openOperationalAction(page, handoverActionId, "commercial.property.handover");
+  await page.locator("button.o_list_button_add").click();
+  await page.getByRole("combobox", { name: "Commercial Unit" }).fill(propertyName);
+  await page.getByRole("option", { name: propertyName, exact: true }).click();
+
+  await page.getByRole("button", { name: "Complete", exact: true }).click();
+  await expect(page.getByRole("dialog")).toContainText("Add at least one checklist item before completing a handover.");
+  await page.getByRole("button", { name: "Ok" }).click();
+
+  await page.getByRole("button", { name: "Add a line" }).click();
+  await page.keyboard.type("Entrance door and lock");
+  await page.getByRole("button", { name: "Save manually" }).click();
+
+  await page.getByRole("button", { name: "Complete", exact: true }).click();
+  await expect(page.getByText("Completed", { exact: true })).toBeVisible();
+
+  await page.goto("/web/session/logout", { waitUntil: "domcontentloaded" });
+  await login(page, propertyUser);
+  await page.locator(".o_main_navbar button").first().click();
+  await page.getByRole("menuitem", { name: "Commercial Properties" }).first().click();
+  await expect(page.getByText("Delivery / Return Checklists", { exact: true })).toHaveCount(0);
   await expectNoClientOrServerErrors(page, monitored);
 });

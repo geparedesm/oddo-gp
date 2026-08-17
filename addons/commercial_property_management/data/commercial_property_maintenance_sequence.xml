@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="seq_commercial_property_maintenance" model="ir.sequence">
+        <field name="name">Commercial Property Maintenance Ticket</field>
+        <field name="code">commercial.property.maintenance</field>
+        <field name="prefix">MT%(year)s-</field>
+        <field name="padding">4</field>
+    </record>
+</odoo>

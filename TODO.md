@@ -221,9 +221,9 @@ privacy-compliant.
 
 Goal: manage inspections, incidents, repairs and handover work per unit.
 
-- [ ] Add maintenance tickets, categories, assignment, costs and audit history.
-- [ ] Add delivery/return checklists with manager-only evidence and photos.
-- [ ] Show operational status and maintenance history on buildings and units.
+- [x] Add maintenance tickets, categories, assignment, costs and audit history.
+- [x] Add delivery/return checklists with manager-only evidence and photos.
+- [x] Show operational status and maintenance history on buildings and units.
 
 Done when: Managers can manage maintenance without exposing operational data in
 public listings or WhatsApp.

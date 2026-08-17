@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_commercial_property_handover_tree" model="ir.ui.view">
+        <field name="name">commercial.property.handover.tree</field>
+        <field name="model">commercial.property.handover</field>
+        <field name="arch" type="xml">
+            <tree decoration-info="state == 'draft'" decoration-success="state == 'completed'">
+                <field name="name"/>
+                <field name="handover_type"/>
+                <field name="property_id"/>
+                <field name="unit_id"/>
+                <field name="lease_id"/>
+                <field name="performed_by_id"/>
+                <field name="performed_at"/>
+                <field name="state" widget="badge"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_commercial_property_handover_form" model="ir.ui.view">
+        <field name="name">commercial.property.handover.form</field>
+        <field name="model">commercial.property.handover</field>
+        <field name="arch" type="xml">
+            <form string="Delivery/Return Checklist">
+                <header>
+                    <button name="action_complete" type="object" string="Complete" class="btn-primary" attrs="{'invisible': [('state', '!=', 'draft')]}"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,completed"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <label for="name"/>
+                        <h1><field name="name" readonly="1"/></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="handover_type"/>
+                            <field name="unit_id" options="{'no_create': True}"/>
+                            <field name="property_id" readonly="1"/>
+                            <field name="lease_id" options="{'no_create': True}"/>
+                        </group>
+                        <group>
+                            <field name="performed_by_id"/>
+                            <field name="performed_at" readonly="1" attrs="{'invisible': [('state', '!=', 'completed')]}"/>
+                        </group>
+                    </group>
+                    <field name="line_ids">
+                        <tree editable="bottom">
+                            <field name="description"/>
+                            <field name="condition"/>
+                            <field name="notes"/>
+                            <field name="photo" widget="image" options="{'size': [40, 40]}"/>
+                        </tree>
+                    </field>
+                    <group>
+                        <field name="overall_notes"/>
+                    </group>
+                    <div class="oe_chatter">
+                        <field name="message_follower_ids" widget="mail_followers"/>
+                        <field name="activity_ids" widget="mail_activity"/>
+                        <field name="message_ids" widget="mail_thread"/>
+                    </div>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_commercial_property_handover_search" model="ir.ui.view">
+        <field name="name">commercial.property.handover.search</field>
+        <field name="model">commercial.property.handover</field>
+        <field name="arch" type="xml">
+            <search string="Search Delivery/Return Checklists">
+                <field name="name"/>
+                <field name="property_id"/>
+                <field name="unit_id"/>
+                <filter name="draft" string="Awaiting Completion" domain="[('state', '=', 'draft')]"/>
+                <filter name="completed" string="Completed" domain="[('state', '=', 'completed')]"/>
+                <filter name="delivery" string="Delivery" domain="[('handover_type', '=', 'delivery')]"/>
+                <filter name="return" string="Return" domain="[('handover_type', '=', 'return')]"/>
+                <group expand="0" string="Group By">
+                    <filter name="group_by_state" string="Status" context="{'group_by': 'state'}"/>
+                    <filter name="group_by_type" string="Type" context="{'group_by': 'handover_type'}"/>
+                    <filter name="group_by_unit" string="Commercial Unit" context="{'group_by': 'unit_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="view_commercial_property_unit_form_handover" model="ir.ui.view">
+        <field name="name">commercial.property.unit.form.handover</field>
+        <field name="model">commercial.property.unit</field>
+        <field name="inherit_id" ref="commercial_property_management.view_commercial_property_unit_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//notebook" position="inside">
+                <page string="Delivery/Return Checklists" groups="commercial_property_management.group_property_manager">
+                    <field name="handover_ids" context="{'default_unit_id': active_id}" mode="tree,form">
+                        <tree>
+                            <field name="name"/>
+                            <field name="handover_type"/>
+                            <field name="performed_by_id"/>
+                            <field name="performed_at"/>
+                            <field name="state" widget="badge"/>
+                        </tree>
+                    </field>
+                </page>
+            </xpath>
+        </field>
+    </record>
+</odoo>

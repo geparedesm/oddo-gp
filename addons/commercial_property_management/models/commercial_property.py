@@ -75,6 +75,19 @@ class CommercialProperty(models.Model):
     unit_ids = fields.One2many("commercial.property.unit", "property_id", string="Commercial Units", copy=False)
     default_unit_id = fields.Many2one("commercial.property.unit", string="Default Unit", copy=False, ondelete="set null")
     lease_ids = fields.One2many("commercial.lease", "property_id", string="Lease History", copy=False)
+    maintenance_ids = fields.One2many(
+        "commercial.property.maintenance", "property_id", string="Maintenance Tickets", copy=False,
+        groups="commercial_property_management.group_property_manager",
+    )
+    open_maintenance_count = fields.Integer(
+        compute="_compute_operational_status", groups="commercial_property_management.group_property_manager",
+    )
+    operational_status = fields.Selection(
+        [("operational", "Operational"), ("under_maintenance", "Under Maintenance")],
+        compute="_compute_operational_status",
+        groups="commercial_property_management.group_property_manager",
+        help="Building-wide operational condition, based on common-area tickets. Never exposed through public listings or WhatsApp.",
+    )
     current_lease_id = fields.Many2one(
         "commercial.lease",
         string="Current Lease",
@@ -179,6 +192,15 @@ class CommercialProperty(models.Model):
             current_lease = property_record.lease_ids.filtered(lambda lease: lease.state == "active")[:1]
             property_record.current_lease_id = current_lease
             property_record.current_tenant_id = current_lease.tenant_id
+
+    @api.depends("maintenance_ids.state", "maintenance_ids.unit_id")
+    def _compute_operational_status(self):
+        for property_record in self:
+            open_tickets = property_record.maintenance_ids.filtered(
+                lambda ticket: not ticket.unit_id and ticket.state in ("assigned", "in_progress")
+            )
+            property_record.open_maintenance_count = len(open_tickets)
+            property_record.operational_status = "under_maintenance" if open_tickets else "operational"
 
     def _sync_availability_from_leases(self):
         """Keep the inventory status aligned with the property's confirmed lease."""

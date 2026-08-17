@@ -36,6 +36,23 @@ class CommercialPropertyUnit(models.Model):
     is_published = fields.Boolean(string="Published", help="Make this available unit visible through the Hermes public API.")
     lease_ids = fields.One2many("commercial.lease", "unit_id", string="Lease History", copy=False)
     reservation_ids = fields.One2many("commercial.property.reservation", "unit_id", string="Reservations", copy=False)
+    maintenance_ids = fields.One2many(
+        "commercial.property.maintenance", "unit_id", string="Maintenance Tickets", copy=False,
+        groups="commercial_property_management.group_property_manager",
+    )
+    handover_ids = fields.One2many(
+        "commercial.property.handover", "unit_id", string="Delivery/Return Checklists", copy=False,
+        groups="commercial_property_management.group_property_manager",
+    )
+    open_maintenance_count = fields.Integer(
+        compute="_compute_operational_status", groups="commercial_property_management.group_property_manager",
+    )
+    operational_status = fields.Selection(
+        [("operational", "Operational"), ("under_maintenance", "Under Maintenance"), ("awaiting_handover", "Awaiting Handover")],
+        compute="_compute_operational_status",
+        groups="commercial_property_management.group_property_manager",
+        help="Internal operational condition. Never exposed through public listings or WhatsApp.",
+    )
     current_lease_id = fields.Many2one("commercial.lease", compute="_compute_current_lease", groups="commercial_property_management.group_property_manager")
     current_tenant_id = fields.Many2one("res.partner", compute="_compute_current_lease", groups="commercial_property_management.group_property_manager")
     enquiry_count = fields.Integer(compute="_compute_acquisition_metrics", groups="commercial_property_management.group_property_manager")
@@ -91,6 +108,18 @@ class CommercialPropertyUnit(models.Model):
             unit.approved_reservation_count = Reservation.search_count(domain + [("state", "=", "approved")])
             unit.contract_count = Lease.search_count(domain + [("state", "in", ("draft", "active", "expired"))])
             unit.lost_enquiry_count = Lead.search_count(domain + [("state", "=", "rejected")])
+
+    @api.depends("maintenance_ids.state", "handover_ids.state")
+    def _compute_operational_status(self):
+        for unit in self:
+            open_tickets = unit.maintenance_ids.filtered(lambda ticket: ticket.state in ("assigned", "in_progress"))
+            unit.open_maintenance_count = len(open_tickets)
+            if open_tickets:
+                unit.operational_status = "under_maintenance"
+            elif unit.handover_ids.filtered(lambda handover: handover.state == "draft"):
+                unit.operational_status = "awaiting_handover"
+            else:
+                unit.operational_status = "operational"
 
     def _sync_availability_from_leases(self):
         today = fields.Date.context_today(self)

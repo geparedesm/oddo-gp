@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="seq_commercial_property_handover" model="ir.sequence">
+        <field name="name">Commercial Property Delivery/Return Checklist</field>
+        <field name="code">commercial.property.handover</field>
+        <field name="prefix">HC%(year)s-</field>
+        <field name="padding">4</field>
+    </record>
+</odoo>
