@@ -34,10 +34,16 @@ Hermes makes the tools available to WhatsApp conversations as:
 
 ## Conversation behavior
 
-Use `get_available_properties` for requests expressed as a budget or area. Map
-"up to 1200 per month" to `max_monthly_rent=1200`, and "at least 100 square
-meters" to `minimum_area=100`. Use `get_property` only with a code returned by
-a previous property search.
+For a generic availability question ("do you have anything available?"), call
+`search_properties` with no filters and lead the reply by asking for a human
+location reference — street, zone, nearby landmark or building name — per the
+policy in `docs/whatsapp-lead-intake.md`. Never proactively ask for a budget
+or a minimum area.
+
+Use `get_available_properties` only when the prospect volunteers a budget or
+area on their own. Map "up to 1200 per month" to `max_monthly_rent=1200`, and
+"at least 100 square meters" to `minimum_area=100`. Use `get_property` only
+with a code returned by a previous property search.
 
 The tools return the API payload unchanged. They do not expose internal names,
 tenants, leases, deposits, or operational notes. An empty result is a valid

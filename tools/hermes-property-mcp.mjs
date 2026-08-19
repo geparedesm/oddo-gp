@@ -8,6 +8,10 @@ import { z } from "zod";
 
 const DEFAULT_API_URL = "http://127.0.0.1:8069";
 const MAX_LIMIT = 50;
+// zod's built-in .email() emits a JSON Schema pattern with negative lookaheads
+// (?!...), which Groq's tool-schema compiler rejects as "not a valid regex".
+// This lookahead-free pattern keeps basic shape validation working everywhere.
+const SIMPLE_EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function optionalNonNegativeNumber(description) {
   return z.number().finite().nonnegative().optional().describe(description);
@@ -88,10 +92,10 @@ export function createHermesPropertyServer(clientFactory = createPropertyApiClie
     "search_properties",
     {
       title: "Search public properties",
-      description: "Search published available properties. Use min_area for a minimum area in square meters and max_rent for a maximum monthly rent.",
+      description: "Search published available properties for browsing (returns each unit's city, building name and a non-sensitive location hint). Call this with no filters as the default reply to 'do you have anything available'. Do not ask the prospect for a budget or area up front; instead ask for a human location reference (street, zone, nearby landmark or building name) and use it to point out the matching unit from the results. Only pass min_area/max_rent if the prospect volunteers a size or budget on their own.",
       inputSchema: {
-        min_area: optionalNonNegativeNumber("Minimum area in square meters."),
-        max_rent: optionalNonNegativeNumber("Maximum monthly rent."),
+        min_area: optionalNonNegativeNumber("Minimum area in square meters. Only set this if the prospect volunteered it."),
+        max_rent: optionalNonNegativeNumber("Maximum monthly rent. Only set this if the prospect volunteered it."),
         limit: optionalLimit(),
       },
     },
@@ -101,8 +105,8 @@ export function createHermesPropertyServer(clientFactory = createPropertyApiClie
   server.registerTool(
     "get_available_properties",
     {
-      title: "Find available properties for a conversational request",
-      description: "Use for requests such as 'under 1200 per month' or 'at least 100 square meters'. Convert budget to max_monthly_rent and requested area to minimum_area before calling.",
+      title: "Find available properties for a conversational budget or size request",
+      description: "Use only when the prospect volunteers a budget (e.g. 'under 1200 per month') or a size requirement (e.g. 'at least 100 square meters') without being asked. Never ask the prospect for a budget or area proactively — lead with a location reference (street, zone, nearby landmark or building name) instead, using search_properties.",
       inputSchema: {
         max_monthly_rent: optionalNonNegativeNumber("Conversational budget converted to a maximum monthly rent."),
         minimum_area: optionalNonNegativeNumber("Conversational area request converted to a minimum area in square meters."),
@@ -121,7 +125,7 @@ export function createHermesPropertyServer(clientFactory = createPropertyApiClie
         property_code: z.string().trim().min(1).max(128),
         name: z.string().trim().min(1).max(128),
         phone: z.string().trim().min(3).max(64),
-        email: z.string().trim().email().max(254).optional(),
+        email: z.string().trim().regex(SIMPLE_EMAIL_PATTERN).max(254).optional(),
         company_name: z.string().trim().max(256).optional(),
         business_activity: z.string().trim().max(256).optional(),
         desired_start_date: z.string().date().optional(),
