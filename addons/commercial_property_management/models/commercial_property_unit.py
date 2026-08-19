@@ -9,7 +9,11 @@ class CommercialPropertyUnit(models.Model):
 
     property_id = fields.Many2one("commercial.property", string="Building", required=True, ondelete="cascade", index=True)
     name = fields.Char(string="Unit Name", required=True, translate=True)
-    code = fields.Char(string="Unit Reference", required=True, copy=False, readonly=True, index=True)
+
+    code = fields.Char(
+        string="Unit Reference", required=True, copy=False, readonly=True, index=True,
+        default=lambda self: _("New"),
+    )
     sequence = fields.Integer(default=10)
     is_default = fields.Boolean(default=False, copy=False, index=True)
     active = fields.Boolean(default=True)
