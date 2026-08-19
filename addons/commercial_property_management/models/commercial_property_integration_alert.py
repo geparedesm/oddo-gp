@@ -19,13 +19,17 @@ class CommercialPropertyIntegrationAlert(models.Model):
 
     @classmethod
     def raise_alert(cls, env, channel, fingerprint, name, severity="warning", details=False):
-        alert = env[cls._name].sudo().search([("fingerprint", "=", fingerprint), ("company_id", "=", env.company.id)], limit=1)
+        # ``env.company`` is empty for the public/anonymous env used by
+        # auth="none" controllers (no res.users context), so fall back to the
+        # first configured company rather than crashing on a required field.
+        company = env.company or env["res.company"].sudo().search([], limit=1)
+        alert = env[cls._name].sudo().search([("fingerprint", "=", fingerprint), ("company_id", "=", company.id)], limit=1)
         if alert:
             if alert.state == "resolved":
                 alert.write({"state": "open", "severity": severity, "details": details})
             return alert
-        alert = env[cls._name].sudo().create({"name": name, "channel": channel, "severity": severity, "fingerprint": fingerprint, "details": details, "company_id": env.company.id})
-        manager = env.ref("commercial_property_management.group_property_manager").users.filtered(lambda user: user.active and not user.share)[:1]
+        alert = env[cls._name].sudo().create({"name": name, "channel": channel, "severity": severity, "fingerprint": fingerprint, "details": details, "company_id": company.id})
+        manager = env.ref("commercial_property_management.group_property_manager").sudo().users.filtered(lambda user: user.active and not user.share)[:1]
         if manager:
             alert.activity_schedule("mail.mail_activity_data_todo", user_id=manager.id, summary=_("Review property integration alert"), note=name)
         return alert
