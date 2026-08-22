@@ -75,6 +75,7 @@ async function login(page, credentials) {
   await page.locator('input[name="password"]').fill(requireCredential(credentials.password, "E2E password"));
   await page.locator('button[type="submit"]').click();
   await page.waitForURL(/\/web(?:#|$)/, { timeout: 30_000 });
+  await expect(page.locator(".o_main_navbar")).toBeVisible({ timeout: 30_000 });
 }
 
 async function openProperties(page, { canCreate = true } = {}) {
@@ -171,8 +172,15 @@ async function createProperty(page, name) {
   await page.getByLabel("Name", { exact: true }).fill(name);
   await page.getByRole("textbox", { name: "Area?" }).fill("100");
   await page.getByLabel("Monthly Rent", { exact: true }).fill("1500");
+  const createResponse = page.waitForResponse(
+    (response) =>
+      response.url().includes("/web/dataset/call_kw/commercial.property/create") && response.ok()
+  );
   await page.getByRole("button", { name: "Save manually" }).click();
+  const response = await createResponse;
+  const { result } = await response.json();
   await expect(page.getByRole("cell", { name, exact: true })).toBeVisible();
+  return result;
 }
 
 async function returnToPropertyList(page) {
@@ -203,8 +211,10 @@ test("an administrator can set a status and archive a commercial property", asyn
   await createProperty(page, propertyName);
 
   await page.getByLabel("State?", { exact: true }).selectOption({ label: "Maintenance" });
+  await page.getByLabel("Property Type", { exact: true }).selectOption({ label: "Residential" });
   await page.getByRole("button", { name: "Save manually" }).click();
   await expect(page.getByRole("radio", { name: "Maintenance" })).toBeChecked();
+  await expect(page.getByLabel("Property Type", { exact: true }).locator("option:checked")).toHaveText("Residential");
 
   await page.getByRole("button", { name: /Action/ }).click();
   await page.getByText("Archive", { exact: true }).click();
@@ -246,15 +256,16 @@ test("a Property User can read inventory but cannot create or edit it", async ({
 
   await login(page, administrator);
   await openProperties(page);
-  await createProperty(page, propertyName);
+  const propertyId = await createProperty(page, propertyName);
   await page.goto("/web/session/logout", { waitUntil: "domcontentloaded" });
 
   await login(page, propertyUser);
   await openProperties(page, { canCreate: false });
   await expect(page.locator("button.o_list_button_add")).toHaveCount(0);
-  await page.locator(".o_searchview_input").fill(propertyName);
-  await page.keyboard.press("Enter");
-  await page.getByText(propertyName, { exact: true }).click();
+  await page.goto(`/web#id=${propertyId}&model=commercial.property&view_type=form`, {
+    waitUntil: "domcontentloaded",
+  });
+  await expect(page.getByText(propertyName, { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Save manually" })).toHaveCount(0);
 
   await expectNoClientOrServerErrors(page, monitored);
@@ -287,10 +298,9 @@ test("an administrator can use Kanban, filters, photos and notes to review inven
   await page.getByRole("img", { name: "Remove" }).click();
   await page.getByRole("button", { name: /Filters/ }).click();
   await page.getByText("Maintenance", { exact: true }).last().click();
-  await expect(page.getByText(propertyName, { exact: true })).toBeVisible();
-
-  await page.getByText(propertyName, { exact: true }).click();
-  await page.getByText("Internal Notes", { exact: true }).click();
+  await page.getByRole("cell", { name: propertyName, exact: true }).click();
+  await expect(page.getByLabel("Name", { exact: true })).toHaveValue(propertyName);
+  await page.getByRole("tab", { name: "Internal Notes" }).click();
   await expect(page.getByPlaceholder("Add operational notes for the property...")).toHaveValue(internalNote);
   await expectNoClientOrServerErrors(page, monitored);
 });
@@ -380,6 +390,10 @@ test("an administrator can activate a lease and review its property history", as
   await page.getByRole("button", { name: "Activate", exact: true }).click();
   await expect(page.getByRole("dialog")).toContainText("A commercial unit can have only one active lease.");
   await page.getByRole("button", { name: "Ok" }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+
+  await page.getByRole("link", { name: "Lease Contracts" }).click();
+  await expect(page.locator(".o_list_view")).toBeVisible();
 
   await page.goto("/web/session/logout", { waitUntil: "domcontentloaded" });
   await login(page, propertyUser);
@@ -697,6 +711,7 @@ test("an administrator can pass the listing quality checklist, publish a unit an
   await page.locator("#public_feature_ids").fill(featureName);
   await page.keyboard.press("Enter");
   await page.getByLabel("Public Location Description?", { exact: true }).fill("Near the central plaza, 5 minutes from the main avenue");
+  await page.getByLabel("Virtual Tour URL?", { exact: true }).fill("https://tours.example.com/e2e-quality-suite");
   await page.locator('input[type="file"]').last().setInputFiles(moduleIconPath);
   await page.getByRole("button", { name: "Save manually" }).click();
 
@@ -750,6 +765,39 @@ test("an administrator can attribute an enquiry to a distribution channel", asyn
   await page.getByRole("option", { name: channelName, exact: true }).click();
   await page.getByRole("button", { name: "Save manually" }).click();
   await expect(page.getByRole("combobox", { name: "Campaign / Channel" })).toHaveValue(channelName);
+
+  await expectNoClientOrServerErrors(page, monitored);
+});
+
+test("an administrator can set a unit's virtual tour link and record a prospect's stated budget", async ({ page }) => {
+  const monitored = monitorPage(page);
+  const propertyName = `E2E Phase18 Building ${Date.now()}`;
+  const prospectName = `E2E Phase18 Prospect ${Date.now()}`;
+  const tourUrl = "https://tours.example.com/phase18-suite";
+
+  await login(page, administrator);
+  await openProperties(page);
+  await createProperty(page, propertyName);
+
+  await openOperationalAction(page, unitActionId, "commercial.property.unit");
+  await page.locator(".o_searchview_input").fill(propertyName);
+  await page.keyboard.press("Enter");
+  await page.getByRole("cell", { name: propertyName, exact: true }).first().click();
+
+  await page.getByText("Public Listing", { exact: true }).click();
+  await page.getByLabel("Virtual Tour URL?", { exact: true }).fill(tourUrl);
+  await page.getByRole("button", { name: "Save manually" }).click();
+  await expect(page.getByLabel("Virtual Tour URL?", { exact: true })).toHaveValue(tourUrl);
+
+  await openOperationalAction(page, enquiryActionId, "commercial.property.lead");
+  await page.locator("button.o_list_button_add").click();
+  await page.locator('[name="name"] input').fill(prospectName);
+  await page.getByLabel("Phone", { exact: true }).fill("+15555550124");
+  await page.getByRole("combobox", { name: "Commercial Unit" }).fill(propertyName);
+  await page.getByRole("option", { name: propertyName, exact: true }).click();
+  await page.getByLabel("Stated Budget?", { exact: true }).fill("1200");
+  await page.getByRole("button", { name: "Save manually" }).click();
+  await expect(page.getByLabel("Stated Budget?", { exact: true })).toHaveValue(/1.?200/);
 
   await expectNoClientOrServerErrors(page, monitored);
 });

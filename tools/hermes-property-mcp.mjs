@@ -21,6 +21,10 @@ function optionalLimit() {
   return z.number().int().min(1).max(MAX_LIMIT).optional().describe("Maximum number of properties to return (1-50). Defaults to 20.");
 }
 
+function optionalZone() {
+  return z.string().trim().min(1).max(128).optional().describe("The prospect's desired zone/location (street, neighborhood or landmark). Always ask for this before searching.");
+}
+
 function requireConfiguration(value, name) {
   if (!value) {
     throw new Error(`${name} must be configured before using the Hermes property tools.`);
@@ -61,12 +65,13 @@ export function createPropertyApiClient({
     getProperty(propertyCode) {
       return request(`/api/hermes/properties/${encodeURIComponent(propertyCode)}`);
     },
-    searchProperties({ minArea, maxRent, limit } = {}) {
+    searchProperties({ minArea, maxRent, limit, zone } = {}) {
       return request("/api/hermes/properties", {
         availability: "available",
         min_area: minArea,
         max_rent: maxRent,
         limit,
+        zone,
       });
     },
     submitEnquiry(propertyCode, enquiry) {
@@ -92,35 +97,37 @@ export function createHermesPropertyServer(clientFactory = createPropertyApiClie
     "search_properties",
     {
       title: "Search public properties",
-      description: "Search published available properties for browsing (returns each unit's city, building name and a non-sensitive location hint). Call this with no filters as the default reply to 'do you have anything available'. Do not ask the prospect for a budget or area up front; instead ask for a human location reference (street, zone, nearby landmark or building name) and use it to point out the matching unit from the results. Only pass min_area/max_rent if the prospect volunteers a size or budget on their own.",
+      description: "Search published available units for browsing (each result includes city, building name, a non-sensitive location hint and price in USD). Before calling this, always ask the prospect for their desired zone/location and their monthly budget, and pass them as zone/max_rent — never search blind. Once a prospect is discussing one specific unit (after get_property), do not call this again and do not offer other units in the same reply unless the prospect explicitly asks for alternatives or says the current unit does not work for them.",
       inputSchema: {
+        zone: optionalZone(),
         min_area: optionalNonNegativeNumber("Minimum area in square meters. Only set this if the prospect volunteered it."),
-        max_rent: optionalNonNegativeNumber("Maximum monthly rent. Only set this if the prospect volunteered it."),
+        max_rent: optionalNonNegativeNumber("Maximum monthly budget in USD. Always ask the prospect for this before searching."),
         limit: optionalLimit(),
       },
     },
-    async ({ min_area: minArea, max_rent: maxRent, limit }) => toolResult(await clientFactory().searchProperties({ minArea, maxRent, limit })),
+    async ({ zone, min_area: minArea, max_rent: maxRent, limit }) => toolResult(await clientFactory().searchProperties({ zone, minArea, maxRent, limit })),
   );
 
   server.registerTool(
     "get_available_properties",
     {
-      title: "Find available properties for a conversational budget or size request",
-      description: "Use only when the prospect volunteers a budget (e.g. 'under 1200 per month') or a size requirement (e.g. 'at least 100 square meters') without being asked. Never ask the prospect for a budget or area proactively — lead with a location reference (street, zone, nearby landmark or building name) instead, using search_properties.",
+      title: "Find available properties for a conversational budget, zone or size request",
+      description: "Use once the prospect has stated a zone/location and a budget (always ask for both before calling search_properties/this tool) or a size requirement. Do not suggest other units once the prospect is already discussing one specific unit, unless they explicitly ask for alternatives.",
       inputSchema: {
-        max_monthly_rent: optionalNonNegativeNumber("Conversational budget converted to a maximum monthly rent."),
+        zone: optionalZone(),
+        max_monthly_rent: optionalNonNegativeNumber("Prospect's stated monthly budget in USD, converted to a maximum monthly rent."),
         minimum_area: optionalNonNegativeNumber("Conversational area request converted to a minimum area in square meters."),
         limit: optionalLimit(),
       },
     },
-    async ({ max_monthly_rent: maxRent, minimum_area: minArea, limit }) => toolResult(await clientFactory().searchProperties({ minArea, maxRent, limit })),
+    async ({ zone, max_monthly_rent: maxRent, minimum_area: minArea, limit }) => toolResult(await clientFactory().searchProperties({ zone, minArea, maxRent, limit })),
   );
 
   server.registerTool(
     "submit_property_enquiry",
     {
       title: "Submit a consented commercial-property enquiry",
-      description: "Create a manager-reviewed, non-binding visit enquiry. Never use this without explicit consent; it never reserves a unit or creates a lease.",
+      description: "Create a manager-reviewed, non-binding visit enquiry. Never use this without explicit consent; it never reserves a unit or creates a lease. Always ask the prospect's monthly budget in USD beforehand and pass it as budget, even if they already said no to a physical visit — it is recorded for managers to see stated willingness to pay against the unit's price.",
       inputSchema: {
         property_code: z.string().trim().min(1).max(128),
         name: z.string().trim().min(1).max(128),
@@ -129,6 +136,7 @@ export function createHermesPropertyServer(clientFactory = createPropertyApiClie
         company_name: z.string().trim().max(256).optional(),
         business_activity: z.string().trim().max(256).optional(),
         desired_start_date: z.string().date().optional(),
+        budget: z.number().finite().nonnegative().optional().describe("The prospect's stated monthly budget in USD. Always ask for this."),
         consent: z.literal(true),
         visit_requested: z.boolean().optional(),
         message: z.string().trim().max(2000).optional(),
@@ -142,7 +150,7 @@ export function createHermesPropertyServer(clientFactory = createPropertyApiClie
     "get_property",
     {
       title: "Get a public property listing",
-      description: "Get the public details for one published available property by its property code returned from a search.",
+      description: "Get the public details for one published available unit by its property code returned from a search, including its price in USD, photo_url and virtual_tour_url. Always share the photo (fetch photo_url) and the virtual_tour_url digital-visit link in the same reply, then ask if the prospect wants to request a physical visit (use submit_property_enquiry with visit_requested). Do not mention or suggest other units in this reply unless the prospect explicitly asks for alternatives.",
       inputSchema: {
         property_code: z.string().trim().min(1).max(128).describe("Public property code returned by a property search."),
       },

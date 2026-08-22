@@ -35,6 +35,7 @@ class CommercialProperty(models.Model):
             ("retail", "Retail"),
             ("warehouse", "Warehouse"),
             ("industrial", "Industrial"),
+            ("residential", "Residential"),
             ("other", "Other"),
         ],
         default="office",

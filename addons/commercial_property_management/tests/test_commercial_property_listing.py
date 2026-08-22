@@ -50,6 +50,7 @@ class TestCommercialPropertyListingQuality(TransactionCase):
                 "public_monthly_rent": 1800,
                 "public_feature_ids": [(6, 0, self.feature.ids)],
                 "public_location_hint": "Near the central plaza, 5 minutes from the main avenue",
+                "virtual_tour_url": "https://tours.example.com/%s" % self._testMethodName,
             }
         )
 
@@ -63,6 +64,11 @@ class TestCommercialPropertyListingQuality(TransactionCase):
     def test_publication_quality_ok_false_without_photo(self):
         self._fill_quality_fields(self.unit)
         self.unit.image_1920 = False
+        self.assertFalse(self.unit.publication_quality_ok)
+
+    def test_publication_quality_ok_false_without_virtual_tour_url(self):
+        self._fill_quality_fields(self.unit)
+        self.unit.virtual_tour_url = False
         self.assertFalse(self.unit.publication_quality_ok)
 
     # Approval / publication lifecycle
@@ -122,9 +128,22 @@ class TestCommercialPropertyListingQuality(TransactionCase):
         public_data = self.unit.get_public_data()
 
         self.assertEqual(public_data["location_hint"], self.unit.public_location_hint)
+        self.assertEqual(public_data["virtual_tour_url"], self.unit.virtual_tour_url)
+        self.assertEqual(public_data["photo_url"], "/api/hermes/properties/%s/photo" % self.unit.code)
         self.assertNotIn("publication_quality_ok", public_data)
         self.assertNotIn("publication_approved_by_id", public_data)
         self.assertNotIn("distribution_channel_ids", public_data)
+
+    def test_residential_property_type_reflected_on_unit_and_public_data(self):
+        self.building.with_user(self.manager).write({"property_type": "residential"})
+        self._fill_quality_fields(self.unit)
+        self.unit.with_user(self.manager).write({"is_published": True})
+
+        self.assertEqual(self.unit.property_type, "residential")
+
+        public_data = self.unit.get_public_data()
+
+        self.assertEqual(public_data["property_type"], "Residential")
 
 
 class TestCommercialPropertyDistributionChannel(TransactionCase):

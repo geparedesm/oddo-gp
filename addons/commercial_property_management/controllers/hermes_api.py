@@ -1,3 +1,5 @@
+import base64
+import binascii
 import hmac
 import hashlib
 import math
@@ -65,6 +67,7 @@ class HermesPropertyController(http.Controller):
             return self._error(401, "unauthorized", "A valid bearer token is required.")
         if params.get("availability", "available") != "available":
             return self._error(400, "invalid_parameter", "availability must be available.")
+        zone = (params.get("zone") or "").strip()[:128] or None
         try:
             min_area = self._parse_non_negative_number(params.get("min_area"), "min_area")
             max_rent = self._parse_non_negative_number(params.get("max_rent"), "max_rent")
@@ -78,6 +81,7 @@ class HermesPropertyController(http.Controller):
             min_area=min_area,
             max_rent=max_rent,
             limit=limit,
+            zone=zone,
         )
         return self._json_response({"properties": [unit.get_public_data() for unit in units]})
 
@@ -93,6 +97,19 @@ class HermesPropertyController(http.Controller):
             return self._error(404, "not_found", "Public property not found.")
         return self._json_response({"property": unit.get_public_data()})
 
+    @http.route("/api/hermes/properties/<string:property_code>/photo", type="http", auth="none", methods=["GET"], csrf=False)
+    def get_property_photo(self, property_code, **params):
+        if not self._is_authenticated():
+            return self._error(401, "unauthorized", "A valid bearer token is required.")
+        unit = request.env["commercial.property.unit"].sudo().search_public_units(code=property_code, limit=1)
+        if not unit or not unit.image_1920:
+            return self._error(404, "not_found", "Public property photo not found.")
+        try:
+            image_bytes = base64.b64decode(unit.image_1920, validate=True)
+        except (binascii.Error, ValueError):
+            return self._error(404, "not_found", "Public property photo not found.")
+        return request.make_response(image_bytes, headers=[("Content-Type", "image/png")])
+
     @http.route("/api/hermes/properties/<string:property_code>/enquiries", type="http", auth="none", methods=["POST"], csrf=False)
     def submit_enquiry(self, property_code, **params):
         if not self._is_authenticated():
@@ -107,8 +124,8 @@ class HermesPropertyController(http.Controller):
             payload = None
         if not isinstance(payload, dict):
             return self._error(400, "invalid_parameter", "A JSON object is required.")
-        allowed = {"name", "phone", "email", "company_name", "business_activity", "desired_start_date", "message", "visit_requested", "consent", "website", "channel"}
-        text_fields = allowed - {"consent", "visit_requested", "desired_start_date", "channel"}
+        allowed = {"name", "phone", "email", "company_name", "business_activity", "desired_start_date", "message", "visit_requested", "consent", "website", "channel", "budget"}
+        text_fields = allowed - {"consent", "visit_requested", "desired_start_date", "channel", "budget"}
         if (
             payload.get("consent") is not True
             or not isinstance(payload.get("name"), str)
@@ -122,6 +139,10 @@ class HermesPropertyController(http.Controller):
             or ("channel" in payload and not isinstance(payload["channel"], str))
         ):
             return self._error(400, "invalid_parameter", "Name, phone and explicit consent are required.")
+        try:
+            budget = self._parse_non_negative_number(payload.get("budget"), "budget")
+        except ValueError:
+            return self._error(400, "invalid_parameter", "budget must be a valid non-negative number.")
         if payload.get("website"):
             self.env["commercial.property.integration.alert"].raise_alert(request.env, "api", "api-abuse-honeypot", "Public enquiry abuse detected", "warning", "Honeypot field was populated.")
             return self._json_response({"message": "Your enquiry was received for manager review."}, status=202)
@@ -152,6 +173,8 @@ class HermesPropertyController(http.Controller):
         }
         if payload.get("desired_start_date"):
             values["desired_start_date"] = payload["desired_start_date"]
+        if budget is not None:
+            values["budget"] = budget
         values.update(
             {
                 "unit_id": unit.id,

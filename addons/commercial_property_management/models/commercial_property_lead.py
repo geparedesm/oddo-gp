@@ -15,6 +15,14 @@ class CommercialPropertyLead(models.Model):
     business_activity = fields.Char()
     desired_start_date = fields.Date()
     message = fields.Text()
+    # Independent from the module's usual property currency_id chain: the prospect's
+    # stated budget is always captured in the public-facing currency (USD), not the
+    # property's operating currency, so it can be compared directly to public_monthly_rent.
+    currency_id = fields.Many2one(
+        "res.currency", string="Stated Budget Currency",
+        default=lambda self: self.env.ref("base.USD", raise_if_not_found=False),
+    )
+    budget = fields.Monetary(string="Stated Budget", help="Monthly budget the prospect stated in WhatsApp, in USD.")
     unit_id = fields.Many2one("commercial.property.unit", string="Commercial Unit", required=True, ondelete="restrict", index=True, tracking=True)
     property_id = fields.Many2one(related="unit_id.property_id", string="Property", store=True, readonly=True, index=True)
     tenant_id = fields.Many2one("res.partner", string="Tenant Draft", readonly=True, copy=False)

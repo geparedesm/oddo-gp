@@ -39,6 +39,7 @@
         <field name="arch" type="xml">
             <xpath expr="//field[@name='public_feature_ids']" position="after">
                 <field name="public_location_hint" placeholder="e.g. Near the central plaza, 5 minutes from the main avenue"/>
+                <field name="virtual_tour_url" placeholder="e.g. https://tours.example.com/unit-123"/>
                 <field name="publication_quality_ok" readonly="1"/>
             </xpath>
             <xpath expr="//field[@name='public_description']" position="after">

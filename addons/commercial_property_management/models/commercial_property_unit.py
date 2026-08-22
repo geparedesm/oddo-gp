@@ -41,6 +41,10 @@ class CommercialPropertyUnit(models.Model):
         string="Public Location Description", translate=True,
         help="Non-sensitive location description for prospects, such as a nearby landmark. Never the exact address.",
     )
+    virtual_tour_url = fields.Char(
+        string="Virtual Tour URL",
+        help="Link to a digital/virtual visit, shared with the prospect alongside the photo before offering a physical visit.",
+    )
     is_published = fields.Boolean(string="Published", help="Make this available unit visible through the Hermes public API.")
     publication_quality_ok = fields.Boolean(
         string="Quality Checklist Passed",
@@ -179,7 +183,7 @@ class CommercialPropertyUnit(models.Model):
 
     @api.depends(
         "image_1920", "public_name", "public_description", "public_monthly_rent",
-        "public_feature_ids", "public_location_hint",
+        "public_feature_ids", "public_location_hint", "virtual_tour_url",
     )
     def _compute_publication_quality_ok(self):
         for unit in self:
@@ -190,6 +194,7 @@ class CommercialPropertyUnit(models.Model):
                 and unit.public_monthly_rent > 0
                 and unit.public_feature_ids
                 and unit.public_location_hint
+                and unit.virtual_tour_url
             )
 
     @api.model
@@ -220,15 +225,30 @@ class CommercialPropertyUnit(models.Model):
             if unit.is_default and unit.property_id.state != state:
                 unit.property_id.state = state
 
+    @api.model
+    def _get_public_currency(self):
+        """The currency prospect-facing amounts are converted to. Configurable via
+        Settings > Commercial Properties (defaults to USD) so a market change never
+        requires a code change."""
+        currency_id = self.env["ir.config_parameter"].sudo().get_param("commercial_property_management.hermes_public_currency_id")
+        if currency_id:
+            currency = self.env["res.currency"].browse(int(currency_id)).exists()
+            if currency:
+                return currency
+        return self.env.ref("base.USD", raise_if_not_found=False) or self.env.company.currency_id
+
     def get_public_data(self):
         self.ensure_one()
         property_type_label = dict(self.property_id._fields["property_type"].selection).get(self.property_type)
+        public_currency = self._get_public_currency()
+        company = self.company_id or self.env.company
+        converted_rent = self.currency_id._convert(self.public_monthly_rent, public_currency, company, fields.Date.context_today(self))
         return {
             "code": self.code,
             "name": self.public_name,
             "description": self.public_description,
-            "monthly_rent": self.public_monthly_rent,
-            "currency": self.currency_id.name,
+            "monthly_rent": converted_rent,
+            "currency": public_currency.name,
             "area": self.area,
             "property_type": property_type_label,
             "features": self.public_feature_ids.mapped("name"),
@@ -238,15 +258,24 @@ class CommercialPropertyUnit(models.Model):
             "entrance_description": self.entrance_description or None,
             "location_hint": self.public_location_hint or None,
             "available_from": fields.Date.to_string(self.available_date) if self.available_date else None,
+            "photo_url": "/api/hermes/properties/%s/photo" % self.code if self.image_1920 else None,
+            "virtual_tour_url": self.virtual_tour_url or None,
         }
 
     @api.model
-    def search_public_units(self, min_area=None, max_rent=None, code=None, limit=None):
+    def search_public_units(self, min_area=None, max_rent=None, code=None, limit=None, zone=None):
         domain = [("active", "=", True), ("is_published", "=", True), ("state", "=", "available")]
         if min_area is not None:
             domain.append(("area", ">=", min_area))
         if max_rent is not None:
+            # max_rent is expressed in the public display currency (see get_public_data);
+            # convert it back to the operating currency stored on public_monthly_rent.
+            public_currency = self._get_public_currency()
+            operating_currency = self.env.company.currency_id
+            max_rent = public_currency._convert(max_rent, operating_currency, self.env.company, fields.Date.context_today(self))
             domain.append(("public_monthly_rent", "<=", max_rent))
         if code:
             domain.append(("code", "=", code))
+        if zone:
+            domain += ["|", ("public_location_hint", "ilike", zone), ("property_id.city", "ilike", zone)]
         return self.search(domain, limit=limit, order="public_monthly_rent asc, id")

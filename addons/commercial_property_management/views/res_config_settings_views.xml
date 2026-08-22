@@ -14,6 +14,7 @@
                         <div class="col-12 col-lg-6 o_setting_box"><div class="o_setting_left_pane"/><div class="o_setting_right_pane"><label for="whatsapp_consent_policy_version"/><field name="whatsapp_consent_policy_version"/><div class="text-muted">Purpose: commercial property enquiry and visit coordination.</div></div></div>
                         <div class="col-12 col-lg-6 o_setting_box"><div class="o_setting_left_pane"/><div class="o_setting_right_pane"><label for="whatsapp_response_sla_business_hours"/><field name="whatsapp_response_sla_business_hours"/><label for="whatsapp_visit_hours"/><field name="whatsapp_visit_hours"/></div></div>
                         <div class="col-12 col-lg-6 o_setting_box"><div class="o_setting_left_pane"/><div class="o_setting_right_pane"><label for="whatsapp_lead_retention_days"/><field name="whatsapp_lead_retention_days"/><label for="whatsapp_rejected_retention_days"/><field name="whatsapp_rejected_retention_days"/><label for="whatsapp_consent_audit_retention_days"/><field name="whatsapp_consent_audit_retention_days"/></div></div>
+                        <div class="col-12 col-lg-6 o_setting_box"><div class="o_setting_left_pane"/><div class="o_setting_right_pane"><label for="hermes_public_currency_id"/><field name="hermes_public_currency_id" options="{'no_create': True}"/><div class="text-muted">Currency Hermes quotes to WhatsApp prospects, converted from each unit's operating currency.</div></div></div>
                     </div>
                 </div>
             </xpath>
