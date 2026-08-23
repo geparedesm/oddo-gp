@@ -392,14 +392,14 @@ test("an administrator can activate a lease and review its property history", as
   await page.getByRole("button", { name: "Ok" }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
 
-  await page.getByRole("link", { name: "Lease Contracts" }).click();
+  await page.getByRole("link", { name: "Leases" }).click();
   await expect(page.locator(".o_list_view")).toBeVisible();
 
   await page.goto("/web/session/logout", { waitUntil: "domcontentloaded" });
   await login(page, propertyUser);
   await page.locator(".o_main_navbar button").first().click();
   await page.getByRole("menuitem", { name: "Commercial Properties" }).first().click();
-  await expect(page.getByText("Lease Contracts", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("Leases", { exact: true })).toHaveCount(0);
 
   await expectNoClientOrServerErrors(page, monitored);
 });
@@ -442,7 +442,7 @@ test("an administrator can access phase 12 visits and reservations while a Prope
   await login(page, propertyUser);
   await page.locator(".o_main_navbar button").first().click();
   await page.getByRole("menuitem", { name: "Commercial Properties" }).first().click();
-  await expect(page.getByText("Visits", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("Inspections", { exact: true })).toHaveCount(0);
   await expect(page.getByText("Reservations", { exact: true })).toHaveCount(0);
   await expectNoClientOrServerErrors(page, monitored);
 });
@@ -456,7 +456,7 @@ test("an administrator can access phase 13 applications while a Property User ca
   await login(page, propertyUser);
   await page.locator(".o_main_navbar button").first().click();
   await page.getByRole("menuitem", { name: "Commercial Properties" }).first().click();
-  await expect(page.getByText("Applications", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("Lease Applications", { exact: true })).toHaveCount(0);
   await expectNoClientOrServerErrors(page, monitored);
 });
 
@@ -798,6 +798,98 @@ test("an administrator can set a unit's virtual tour link and record a prospect'
   await page.getByLabel("Stated Budget?", { exact: true }).fill("1200");
   await page.getByRole("button", { name: "Save manually" }).click();
   await expect(page.getByLabel("Stated Budget?", { exact: true })).toHaveValue(/1.?200/);
+
+  await expectNoClientOrServerErrors(page, monitored);
+});
+
+async function openAreaMenu(page, areaXmlId) {
+  await page.locator(`button[data-menu-xmlid="commercial_property_management.${areaXmlId}"]`).click();
+}
+
+test("an administrator sees the Phase 19 grouped navigation while a Property User only sees Properties", async ({ page }) => {
+  const monitored = monitorPage(page);
+  await login(page, administrator);
+  await page.locator(".o_main_navbar button").first().click();
+  await page.getByRole("menuitem", { name: "Commercial Properties" }).first().click();
+
+  for (const area of ["Properties", "Leasing", "Operations", "Analytics", "Configuration"]) {
+    await expect(page.locator(".o_menu_sections").getByText(area, { exact: true })).toBeVisible();
+  }
+
+  await openAreaMenu(page, "menu_commercial_leasing");
+  const leasingItems = ["Enquiries", "Inspections", "Reservations", "Lease Applications", "Tenants", "Leases"];
+  for (const item of leasingItems) {
+    await expect(page.getByRole("menuitem", { name: item, exact: true })).toBeVisible();
+  }
+  const leasingPositions = await Promise.all(
+    leasingItems.map((item) => page.getByRole("menuitem", { name: item, exact: true }).boundingBox())
+  );
+  for (let index = 1; index < leasingPositions.length; index += 1) {
+    expect(leasingPositions[index].y).toBeGreaterThan(leasingPositions[index - 1].y);
+  }
+  await page.keyboard.press("Escape");
+
+  await openAreaMenu(page, "menu_commercial_configuration");
+  for (const item of ["Integration Alerts", "Distribution Channels", "WhatsApp Policy"]) {
+    await expect(page.getByRole("menuitem", { name: item, exact: true })).toBeVisible();
+  }
+  await page.keyboard.press("Escape");
+
+  await page.goto("/web/session/logout", { waitUntil: "domcontentloaded" });
+  await login(page, propertyUser);
+  await page.locator(".o_main_navbar button").first().click();
+  await page.getByRole("menuitem", { name: "Commercial Properties" }).first().click();
+  await expect(page.locator(".o_menu_sections").getByText("Properties", { exact: true })).toBeVisible();
+  for (const area of ["Leasing", "Operations", "Analytics", "Configuration"]) {
+    await expect(page.locator(".o_menu_sections").getByText(area, { exact: true })).toHaveCount(0);
+  }
+
+  await expectNoClientOrServerErrors(page, monitored);
+});
+
+test("the Properties area groups Properties and Units together", async ({ page }) => {
+  const monitored = monitorPage(page);
+  await login(page, administrator);
+  await page.locator(".o_main_navbar button").first().click();
+  await page.getByRole("menuitem", { name: "Commercial Properties" }).first().click();
+  await openAreaMenu(page, "menu_commercial_property_area");
+  await expect(page.getByRole("menuitem", { name: "Properties", exact: true })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Units", exact: true })).toBeVisible();
+  await page.getByRole("menuitem", { name: "Units", exact: true }).click();
+  await expect(page.locator(".o_list_view")).toBeVisible();
+  await expect(page.locator(".o_control_panel").getByText("Units", { exact: true })).toBeVisible();
+
+  await expectNoClientOrServerErrors(page, monitored);
+});
+
+test("an available unit's contextual actions match its state and Create Enquiry opens a prefilled enquiry", async ({ page }) => {
+  const monitored = monitorPage(page);
+  const propertyName = `E2E Phase19 Unit ${Date.now()}`;
+
+  await login(page, administrator);
+  await openProperties(page);
+  await createProperty(page, propertyName);
+
+  await openOperationalAction(page, unitActionId, "commercial.property.unit");
+  await page.locator(".o_searchview_input").fill(propertyName);
+  await page.keyboard.press("Enter");
+  await page.getByRole("cell", { name: propertyName, exact: true }).first().click();
+
+  // Available unit: only the "start of funnel" shortcuts show.
+  await expect(page.getByRole("button", { name: "Create Enquiry" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Schedule Inspection" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Create Reservation" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "View Reservation" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Cancel Reservation" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Create Lease Application" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "View Lease" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "View Tenant" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "View Maintenance" })).toHaveCount(0);
+  await expect(page.getByRole("radio", { name: "No Activity" })).toBeChecked();
+
+  // Create Enquiry reuses the standard enquiry form, prefilled with this unit.
+  await page.getByRole("button", { name: "Create Enquiry" }).click();
+  await expect(page.getByRole("combobox", { name: "Commercial Unit" })).toHaveValue(propertyName);
 
   await expectNoClientOrServerErrors(page, monitored);
 });

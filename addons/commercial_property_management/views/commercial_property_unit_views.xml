@@ -14,8 +14,40 @@
         <field name="model">commercial.property.unit</field>
         <field name="arch" type="xml">
             <form string="Commercial Unit">
-                <header><field name="state" widget="statusbar" statusbar_visible="available,reserved,rented,maintenance,inactive"/></header>
+                <header>
+                    <field name="state" widget="statusbar" statusbar_visible="available,reserved,rented,maintenance,inactive"/>
+                    <field name="commercial_progress_stage" widget="statusbar" statusbar_visible="enquiry,inspection,reservation,application,lease" clickable="False" groups="commercial_property_management.group_property_manager"/>
+                </header>
                 <sheet>
+                    <div name="button_box" class="oe_button_box" groups="commercial_property_management.group_property_manager">
+                        <button name="action_create_enquiry" type="object" class="oe_stat_button" icon="fa-comment-o" attrs="{'invisible': [('state', '!=', 'available')]}">
+                            <div class="o_stat_info"><span class="o_stat_text">Create Enquiry</span></div>
+                        </button>
+                        <button name="action_schedule_inspection" type="object" class="oe_stat_button" icon="fa-calendar" attrs="{'invisible': [('state', '!=', 'available')]}">
+                            <div class="o_stat_info"><span class="o_stat_text">Schedule Inspection</span></div>
+                        </button>
+                        <button name="action_create_reservation" type="object" class="oe_stat_button" icon="fa-bookmark-o" attrs="{'invisible': [('state', '!=', 'available')]}">
+                            <div class="o_stat_info"><span class="o_stat_text">Create Reservation</span></div>
+                        </button>
+                        <button name="action_view_reservation" type="object" class="oe_stat_button" icon="fa-bookmark" attrs="{'invisible': [('state', '!=', 'reserved')]}">
+                            <div class="o_stat_info"><span class="o_stat_text">View Reservation</span></div>
+                        </button>
+                        <button name="action_create_lease_application" type="object" class="oe_stat_button" icon="fa-file-text-o" attrs="{'invisible': [('state', '!=', 'reserved')]}">
+                            <div class="o_stat_info"><span class="o_stat_text">Create Lease Application</span></div>
+                        </button>
+                        <button name="action_cancel_reservation" type="object" class="oe_stat_button" icon="fa-times" attrs="{'invisible': [('state', '!=', 'reserved')]}">
+                            <div class="o_stat_info"><span class="o_stat_text">Cancel Reservation</span></div>
+                        </button>
+                        <button name="action_view_lease" type="object" class="oe_stat_button" icon="fa-file-text" attrs="{'invisible': [('state', '!=', 'rented')]}">
+                            <div class="o_stat_info"><span class="o_stat_text">View Lease</span></div>
+                        </button>
+                        <button name="action_view_tenant" type="object" class="oe_stat_button" icon="fa-user" attrs="{'invisible': [('state', '!=', 'rented')]}">
+                            <div class="o_stat_info"><span class="o_stat_text">View Tenant</span></div>
+                        </button>
+                        <button name="action_view_maintenance" type="object" class="oe_stat_button" icon="fa-wrench" attrs="{'invisible': [('state', '!=', 'rented')]}">
+                            <div class="o_stat_info"><span class="o_stat_text">View Maintenance</span></div>
+                        </button>
+                    </div>
                     <field name="image_1920" widget="image" class="oe_avatar"/>
                     <div class="oe_title"><h1><field name="name" placeholder="e.g. Ground floor corner unit"/></h1><div><field name="code" readonly="1"/></div></div>
                     <group><group string="Unit Details"><field name="property_id" options="{'no_create': True}"/><field name="floor"/><field name="entrance_description"/><field name="area"/><field name="monthly_rent" widget="monetary"/><field name="currency_id" invisible="1"/><field name="available_date"/></group><group string="Availability"><field name="state"/><field name="is_published"/><field name="active"/></group></group>

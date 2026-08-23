@@ -69,6 +69,10 @@ class CommercialPropertyUnit(models.Model):
         help="Channels this unit has been shared to, such as a website, property portal or social campaign.",
     )
     lease_ids = fields.One2many("commercial.lease", "unit_id", string="Lease History", copy=False)
+    lead_ids = fields.One2many(
+        "commercial.property.lead", "unit_id", string="Enquiries", copy=False,
+        groups="commercial_property_management.group_property_manager",
+    )
     reservation_ids = fields.One2many("commercial.property.reservation", "unit_id", string="Reservations", copy=False)
     maintenance_ids = fields.One2many(
         "commercial.property.maintenance", "unit_id", string="Maintenance Tickets", copy=False,
@@ -100,6 +104,21 @@ class CommercialPropertyUnit(models.Model):
     approved_reservation_count = fields.Integer(compute="_compute_acquisition_metrics", groups="commercial_property_management.group_property_manager")
     contract_count = fields.Integer(compute="_compute_acquisition_metrics", groups="commercial_property_management.group_property_manager")
     lost_enquiry_count = fields.Integer(compute="_compute_acquisition_metrics", groups="commercial_property_management.group_property_manager")
+    commercial_progress_stage = fields.Selection(
+        [
+            ("none", "No Activity"),
+            ("enquiry", "Enquiry"),
+            ("inspection", "Inspection"),
+            ("reservation", "Reservation"),
+            ("application", "Application"),
+            ("lease", "Lease"),
+        ],
+        compute="_compute_commercial_progress_stage",
+        groups="commercial_property_management.group_property_manager",
+        help="Furthest stage reached in the commercial process for this unit, derived from "
+        "its existing enquiries, visits, reservations, applications and leases. Independent "
+        "from the unit's availability `state` above.",
+    )
     company_id = fields.Many2one(related="property_id.company_id", store=True, readonly=True, index=True)
 
     _sql_constraints = [("commercial_property_unit_code_unique", "unique(code)", "The unit reference must be unique.")]
@@ -175,6 +194,28 @@ class CommercialPropertyUnit(models.Model):
             else:
                 unit.operational_status = "operational"
 
+    @api.depends(
+        "lead_ids.state",
+        "lead_ids.visit_ids.state",
+        "lead_ids.reservation_ids.state",
+        "lead_ids.application_ids.state",
+        "current_lease_id",
+    )
+    def _compute_commercial_progress_stage(self):
+        for unit in self:
+            stage = "none"
+            if unit.lead_ids:
+                stage = "enquiry"
+            if unit.lead_ids.visit_ids.filtered(lambda visit: visit.state == "completed"):
+                stage = "inspection"
+            if unit.lead_ids.reservation_ids.filtered(lambda reservation: reservation.state == "approved"):
+                stage = "reservation"
+            if unit.lead_ids.application_ids:
+                stage = "application"
+            if unit.current_lease_id:
+                stage = "lease"
+            unit.commercial_progress_stage = stage
+
     @api.depends("state", "vacant_since")
     def _compute_vacancy_days(self):
         today = fields.Date.context_today(self)
@@ -224,6 +265,88 @@ class CommercialPropertyUnit(models.Model):
                 unit.state = state
             if unit.is_default and unit.property_id.state != state:
                 unit.property_id.state = state
+
+    def _get_current_lead(self):
+        self.ensure_one()
+        candidates = self.lead_ids.filtered(lambda lead: lead.state not in ("rejected", "converted"))
+        return candidates.sorted("create_date", reverse=True)[:1]
+
+    def _get_current_reservation(self):
+        self.ensure_one()
+        return self.reservation_ids.filtered(lambda reservation: reservation.state == "approved")[:1]
+
+    def action_create_enquiry(self):
+        """Contextual shortcut for an available unit: open a new enquiry pre-filled
+        with this unit, reusing the standard commercial.property.lead form."""
+        self.ensure_one()
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("New Enquiry"),
+            "res_model": "commercial.property.lead",
+            "view_mode": "form",
+            "target": "current",
+            "context": {"default_unit_id": self.id},
+        }
+
+    def action_schedule_inspection(self):
+        self.ensure_one()
+        lead = self._get_current_lead()
+        if not lead:
+            raise ValidationError(_("Create an enquiry for this unit before scheduling an inspection."))
+        return lead.action_schedule_visit()
+
+    def action_create_reservation(self):
+        self.ensure_one()
+        lead = self._get_current_lead()
+        if not lead:
+            raise ValidationError(_("Create an enquiry for this unit before requesting a reservation."))
+        return lead.action_create_reservation_request()
+
+    def action_view_reservation(self):
+        self.ensure_one()
+        reservation = self._get_current_reservation() or self.reservation_ids[:1]
+        if not reservation:
+            raise ValidationError(_("This unit has no reservation on record."))
+        action = self.env.ref("commercial_property_management.action_commercial_property_reservation").sudo().read()[0]
+        action.update({"res_id": reservation.id, "view_mode": "form", "views": [(False, "form")]})
+        return action
+
+    def action_cancel_reservation(self):
+        self.ensure_one()
+        reservation = self._get_current_reservation()
+        if not reservation:
+            raise ValidationError(_("This unit has no approved reservation to cancel."))
+        reservation.action_cancel()
+
+    def action_create_lease_application(self):
+        self.ensure_one()
+        lead = self._get_current_lead()
+        if not lead:
+            raise ValidationError(_("This unit has no enquiry to start a lease application from."))
+        return lead.action_create_application()
+
+    def action_view_lease(self):
+        self.ensure_one()
+        lease = self.current_lease_id or self.lease_ids[:1]
+        if not lease:
+            raise ValidationError(_("This unit has no lease on record."))
+        action = self.env.ref("commercial_property_management.action_commercial_lease").sudo().read()[0]
+        action.update({"res_id": lease.id, "view_mode": "form", "views": [(False, "form")]})
+        return action
+
+    def action_view_tenant(self):
+        self.ensure_one()
+        if not self.current_tenant_id:
+            raise ValidationError(_("This unit has no tenant on record."))
+        action = self.env.ref("commercial_property_management.action_commercial_tenant").sudo().read()[0]
+        action.update({"res_id": self.current_tenant_id.id, "view_mode": "form", "views": [(False, "form")]})
+        return action
+
+    def action_view_maintenance(self):
+        self.ensure_one()
+        action = self.env.ref("commercial_property_management.action_commercial_property_maintenance").sudo().read()[0]
+        action.update({"domain": [("unit_id", "=", self.id)], "context": {"default_unit_id": self.id}})
+        return action
 
     @api.model
     def _get_public_currency(self):

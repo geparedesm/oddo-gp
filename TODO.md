@@ -319,6 +319,141 @@ a physical visit, has any spontaneously-volunteered budget recorded, and is
 never shown other units unless they ask. Open: verifying exchange-rate
 freshness in the live database, and optionally serving a resized photo.
 
+## Phase 19 - Navigation UX Reorganization in Odoo
 
+Goal: group the module's 16 flat top-level menu items into functional areas
+that follow the business flow, without touching models, data or existing
+XML IDs, so the top app bar stops overflowing into Odoo's "+" overflow menu.
+
+Current state (inspected in `views/commercial_property_menus.xml`): a single
+`menu_commercial_property_root` with 16 direct children, all sharing
+sequences 10-90 — Properties, Commercial Units, Tenants, Enquiries, Visits,
+Reservations, Applications, Integration Alerts, Lease Contracts, Maintenance,
+Maintenance Dashboard, Delivery/Return Checklists, Penalties, Portfolio
+Performance, Distribution Channels, Campaign Attribution, plus WhatsApp
+Policy. Every action referenced already exists (`action_commercial_property`,
+`action_commercial_property_unit`, `action_commercial_tenant`,
+`action_commercial_property_lead`, `action_commercial_property_visit`,
+`action_commercial_property_reservation`,
+`action_commercial_property_application`,
+`action_commercial_property_integration_alert`, `action_commercial_lease`,
+`action_commercial_property_maintenance`,
+`action_commercial_property_maintenance_dashboard`,
+`action_commercial_property_handover`, `action_commercial_lease_penalty`,
+`action_commercial_lease_operations_dashboard`,
+`action_commercial_property_portfolio`,
+`action_commercial_property_distribution_channel`,
+`action_commercial_property_campaign_attribution`,
+`action_commercial_property_settings`) — this phase is a menu/view
+reorganization, not a new-feature phase.
+
+- [x] Add 5 new parent `ir.ui.menu` records under `menu_commercial_property_root`
+      (no action, just containers): Properties, Leasing, Operations, Analytics,
+      Configuration — new XML IDs (`menu_commercial_property_area`,
+      `menu_commercial_leasing`, `menu_commercial_operations`,
+      `menu_commercial_analytics`, `menu_commercial_configuration`).
+- [x] Re-parent every existing leaf menuitem under the matching new parent by
+      changing only its `parent`/`sequence` attributes; every existing `id`
+      and `action` kept unchanged.
+- [x] Rename labels — both the menuitem `name` and the underlying action's
+      `name` (breadcrumb/window title), so the two never disagree:
+      `menu_commercial_property_unit`/`action_commercial_property_unit`
+      "Commercial Units" → "Units"; `menu_commercial_property_visit`/
+      `action_commercial_property_visit` "Visits" → "Inspections";
+      `menu_commercial_property_application`/
+      `action_commercial_property_application` "Applications" → "Lease
+      Applications"; `menu_commercial_lease`/`action_commercial_lease`
+      "Lease Contracts" → "Leases". Also relabelled the matching "Commercial
+      Units" notebook tab on the building form to "Units" for consistency.
+- [x] Order the Leasing children by `sequence` to match the business flow:
+      Enquiries → Inspections → Reservations → Lease Applications → Tenants →
+      Leases (verified in the live DOM, not just the XML).
+- [x] Move Maintenance, Maintenance Dashboard, Delivery/Return Checklists and
+      Penalties under Operations.
+- [x] Move Portfolio Performance and Campaign Attribution under Analytics,
+      alongside the existing Operations Dashboard.
+- [x] Move Integration Alerts and WhatsApp Policy under Configuration; no
+      empty "Integrations" placeholder menu was added.
+- [x] Classified Distribution Channels (plain CRUD of channel master data,
+      no pivot/metrics) as Configuration, not Analytics — confirmed not
+      duplicated in both places.
+- [x] Added a `commercial.property.unit` form-view button box with
+      contextual actions driven by `state`, reusing existing lead/reservation
+      methods (`action_qualify`, `action_schedule_visit`,
+      `action_create_reservation_request`, `action_create_application`,
+      `action_cancel` on reservation) via new thin navigation-only methods
+      on the unit (`action_create_enquiry`, `action_schedule_inspection`,
+      `action_create_reservation`, `action_view_reservation`,
+      `action_cancel_reservation`, `action_create_lease_application`,
+      `action_view_lease`, `action_view_tenant`, `action_view_maintenance`):
+      - `available`: Create Enquiry, Schedule Inspection, Create Reservation.
+      - `reserved`: View Reservation, Create Lease Application, Cancel
+        Reservation.
+      - `rented`: View Lease, View Tenant, View Maintenance.
+      The whole button box is gated `groups="group_property_manager"` (the
+      only group with create/write on leads/visits/reservations/
+      applications), and each button is additionally gated on `state`.
+- [x] Added a non-destructive computed progress indicator,
+      `commercial_progress_stage` (Selection, computed, not stored), derived
+      from a new `lead_ids` One2many on the unit plus the existing
+      `current_lease_id`: has a lead → Enquiry; has a completed visit →
+      Inspection; has an approved reservation → Reservation; has an
+      application → Application; has an active lease → Lease. Rendered as a
+      second, non-clickable `statusbar` in the header, separate from the
+      existing `state` field, which is untouched and still drives
+      availability (available/reserved/rented/maintenance/inactive).
+- [x] Ran `npm run test:all` (module upgrade over the existing dev database)
+      repeatedly while iterating; final run: 93/93 Python tests and 27/27
+      Playwright e2e tests pass, including a from-scratch install in a
+      throwaway database. No XML ID collisions, no duplicate menus/actions.
+
+Done when: the top menu bar shows only Commercial Properties > {Properties,
+Leasing, Operations, Analytics, Configuration} — confirmed live, no
+standalone "Dashboard" leaf was added (see recommendation below); Leasing's
+children are ordered Enquiries → Inspections → Reservations → Lease
+Applications → Tenants → Leases; the four labels above are renamed
+everywhere (menu and breadcrumb); the `commercial.property.unit` form offers
+valid next-step actions per state; a non-destructive progress indicator is
+visible without changing `state`; and the module upgrades cleanly over the
+existing database with no duplicate menus/actions and no XML ID errors.
+
+### Follow-ups discovered while testing (not fixed — out of this phase's scope)
+
+- **Manually creating an enquiry through the web form (Enquiries "New", or
+  the new "Create Enquiry" button) cannot actually be saved.**
+  `commercial.property.lead.consent_at` is `required=True` and
+  `readonly=True` with no default, and the form never sets it, so the web
+  client blocks the save with "Invalid fields: Consent Given At". This is a
+  pre-existing gap from Phase 11 (WhatsApp leads set `consent_at`
+  server-side through the Hermes API controller, so the production channel
+  is unaffected), not something introduced by this phase — confirmed by
+  reproducing it with the original, unmodified Enquiries "New" flow too. It
+  only blocks the manager/back-office manual-entry path. Needs a product
+  decision (e.g. a manual-consent checkbox + timestamp default for
+  `source=manual` leads) before fixing.
+- **The dev database accumulates disposable `E2E %`-named fixtures across
+  test runs** (properties, units, leads, etc., with no teardown), which had
+  grown to 144 records and started breaking an unrelated pre-existing test
+  ("Kanban, filters, photos and notes to review inventory") once a filtered
+  list spilled past the first page. Cleaned up once during this phase; there
+  is still no automated teardown, so it will accumulate again over time.
+
+### Decisions taken during implementation (from the pre-implementation recommendations above)
+
+- No standalone root "Dashboard" leaf was added (option b) — zero new code,
+  no redundant action; both dashboards stay reachable from Analytics/Operations.
+- No separate "Settings" entry was added; "WhatsApp Policy" remains the only
+  settings action, avoiding a duplicate action behind two labels.
+- Integration Alerts and Distribution Channels were raised from
+  `group_property_manager` to `group_property_administrator` on both the
+  menuitem and the underlying action's `groups_id` (the menu `groups`
+  attribute alone does not block direct action access) — Configuration is
+  now administrator-only end to end, matching WhatsApp Policy.
+- Maintenance Dashboard was grouped under Operations, next to Maintenance.
+- New area-container XML IDs (`menu_commercial_property_area`,
+  `menu_commercial_leasing`, etc.) are distinct from the existing leaf IDs.
+- Contextual unit actions are thin `ir.actions.act_window`-returning methods
+  that delegate to the existing lead/reservation methods; no duplicated
+  business validation.
 
 
