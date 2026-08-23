@@ -237,6 +237,13 @@ class CommercialPropertyUnit(models.Model):
                 return currency
         return self.env.ref("base.USD", raise_if_not_found=False) or self.env.company.currency_id
 
+    @api.model
+    def _get_operating_company(self):
+        """The company used for currency conversion. ``env.company`` is empty for
+        auth=none requests (no user session), so fall back to a real company
+        instead of letting ``res.currency._convert`` raise on an empty recordset."""
+        return self.env.company or self.env["res.company"].sudo().search([], limit=1)
+
     def get_public_data(self):
         self.ensure_one()
         property_type_label = dict(self.property_id._fields["property_type"].selection).get(self.property_type)
@@ -271,11 +278,19 @@ class CommercialPropertyUnit(models.Model):
             # max_rent is expressed in the public display currency (see get_public_data);
             # convert it back to the operating currency stored on public_monthly_rent.
             public_currency = self._get_public_currency()
-            operating_currency = self.env.company.currency_id
-            max_rent = public_currency._convert(max_rent, operating_currency, self.env.company, fields.Date.context_today(self))
+            company = self._get_operating_company()
+            operating_currency = company.currency_id
+            max_rent = public_currency._convert(max_rent, operating_currency, company, fields.Date.context_today(self))
             domain.append(("public_monthly_rent", "<=", max_rent))
         if code:
             domain.append(("code", "=", code))
         if zone:
-            domain += ["|", ("public_location_hint", "ilike", zone), ("property_id.city", "ilike", zone)]
+            domain += [
+                "|", "|", "|", "|",
+                ("public_location_hint", "ilike", zone),
+                ("property_id.city", "ilike", zone),
+                ("property_id.name", "ilike", zone),
+                ("name", "ilike", zone),
+                ("public_name", "ilike", zone),
+            ]
         return self.search(domain, limit=limit, order="public_monthly_rent asc, id")

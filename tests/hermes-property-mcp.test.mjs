@@ -1,12 +1,31 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createPropertyApiClient } from "../tools/hermes-property-mcp.mjs";
+import {
+  createHermesPropertyServer,
+  createPropertyApiClient,
+  resolveGetPropertyResult,
+  REFRESH_BEFORE_ANSWERING_NOTICE,
+} from "../tools/hermes-property-mcp.mjs";
 
 function jsonResponse(status, payload) {
   return new Response(JSON.stringify(payload), {
     status,
     headers: { "content-type": "application/json" },
+  });
+}
+
+function registeredTool(server, name) {
+  return server._registeredTools[name];
+}
+
+function binaryResponse(bytes, { contentType = "image/png", contentLength } = {}) {
+  return new Response(bytes, {
+    status: 200,
+    headers: {
+      "content-type": contentType,
+      ...(contentLength !== undefined ? { "content-length": String(contentLength) } : {}),
+    },
   });
 }
 
@@ -108,4 +127,222 @@ test("a consented enquiry is posted to the encoded public unit URL", async () =>
   assert.equal(receivedOptions.headers["Content-Type"], "application/json");
   assert.deepEqual(JSON.parse(receivedOptions.body), enquiry);
   assert.equal(JSON.parse(receivedOptions.body).budget, 1200);
+});
+
+test("a property photo is fetched from the encoded authenticated binary route", async () => {
+  let receivedUrl;
+  let receivedOptions;
+  const bytes = new Uint8Array([1, 2, 3, 4]);
+  const client = createPropertyApiClient({
+    apiUrl: "https://odoo.example.test",
+    token: "test-token",
+    fetchImpl: async (url, options) => {
+      receivedUrl = url;
+      receivedOptions = options;
+      return binaryResponse(bytes);
+    },
+  });
+
+  const photo = await client.getPropertyPhoto("CP 001");
+
+  assert.equal(receivedUrl.pathname, "/api/hermes/properties/CP%20001/photo");
+  assert.equal(receivedOptions.method, "GET");
+  assert.equal(receivedOptions.headers.Authorization, "Bearer test-token");
+  assert.equal(receivedOptions.headers["X-Hermes-Channel"], "mcp");
+  assert.equal(photo.mimeType, "image/png");
+  assert.equal(photo.data, Buffer.from(bytes).toString("base64"));
+});
+
+test("an unauthorized photo request surfaces the public API error", async () => {
+  const client = createPropertyApiClient({
+    apiUrl: "https://odoo.example.test",
+    token: "test-token",
+    fetchImpl: async () => jsonResponse(401, { error: { code: "unauthorized", message: "A valid bearer token is required." } }),
+  });
+
+  await assert.rejects(
+    client.getPropertyPhoto("CP-001"),
+    /Property API request failed \(401\): A valid bearer token is required\./,
+  );
+});
+
+test("a photo response with a disallowed MIME type is rejected", async () => {
+  const client = createPropertyApiClient({
+    apiUrl: "https://odoo.example.test",
+    token: "test-token",
+    fetchImpl: async () => binaryResponse(new Uint8Array([1, 2, 3]), { contentType: "application/pdf" }),
+  });
+
+  await assert.rejects(client.getPropertyPhoto("CP-001"), /unsupported content type/);
+});
+
+test("a photo response over the size limit is rejected using the Content-Length header", async () => {
+  const client = createPropertyApiClient({
+    apiUrl: "https://odoo.example.test",
+    token: "test-token",
+    fetchImpl: async () => binaryResponse(new Uint8Array([1, 2, 3]), { contentLength: 11 * 1024 * 1024 }),
+  });
+
+  await assert.rejects(client.getPropertyPhoto("CP-001"), /exceeds the \d+-byte limit/);
+});
+
+test("a photo response over the size limit is rejected using the actual byte count", async () => {
+  const oversizedBytes = new Uint8Array(10 * 1024 * 1024 + 1);
+  const client = createPropertyApiClient({
+    apiUrl: "https://odoo.example.test",
+    token: "test-token",
+    fetchImpl: async () => binaryResponse(oversizedBytes),
+  });
+
+  await assert.rejects(client.getPropertyPhoto("CP-001"), /exceeds the \d+-byte limit/);
+});
+
+test("get_property returns an ImageContent block alongside the JSON text when a photo is available", async () => {
+  const bytes = new Uint8Array([9, 9, 9]);
+  const property = { code: "CP-001", photo_url: "/api/hermes/properties/CP-001/photo" };
+  const client = createPropertyApiClient({
+    apiUrl: "https://odoo.example.test",
+    token: "test-token",
+    fetchImpl: async (url) => {
+      if (url.pathname.endsWith("/photo")) {
+        return binaryResponse(bytes);
+      }
+      return jsonResponse(200, { property });
+    },
+  });
+
+  const result = await resolveGetPropertyResult(client, "CP-001");
+
+  assert.equal(result.content.length, 2);
+  assert.deepEqual(result.content[0], { type: "text", text: JSON.stringify({ property }) });
+  assert.deepEqual(result.content[1], { type: "image", data: Buffer.from(bytes).toString("base64"), mimeType: "image/png" });
+  assert.deepEqual(result.structuredContent, { property });
+});
+
+test("get_property omits the ImageContent block and does not fetch a photo when photo_url is null", async () => {
+  const property = { code: "CP-002", photo_url: null };
+  let photoRequested = false;
+  const client = createPropertyApiClient({
+    apiUrl: "https://odoo.example.test",
+    token: "test-token",
+    fetchImpl: async (url) => {
+      if (url.pathname.endsWith("/photo")) {
+        photoRequested = true;
+      }
+      return jsonResponse(200, { property });
+    },
+  });
+
+  const result = await resolveGetPropertyResult(client, "CP-002");
+
+  assert.equal(photoRequested, false);
+  assert.deepEqual(result.content, [{ type: "text", text: JSON.stringify({ property }) }]);
+  assert.deepEqual(result.structuredContent, { property });
+});
+
+test("search_properties and get_property descriptions require refreshing current data before answering", () => {
+  const server = createHermesPropertyServer(() =>
+    createPropertyApiClient({ apiUrl: "https://odoo.example.test", token: "test-token" }),
+  );
+
+  assert.match(REFRESH_BEFORE_ANSWERING_NOTICE, /never infer/i);
+  assert.match(REFRESH_BEFORE_ANSWERING_NOTICE, /current data/i);
+  assert.ok(registeredTool(server, "search_properties").description.includes(REFRESH_BEFORE_ANSWERING_NOTICE));
+  assert.ok(registeredTool(server, "get_property").description.includes(REFRESH_BEFORE_ANSWERING_NOTICE));
+});
+
+test("get_property_photo is described as a mandatory re-check before answering photo questions", () => {
+  const server = createHermesPropertyServer(() =>
+    createPropertyApiClient({ apiUrl: "https://odoo.example.test", token: "test-token" }),
+  );
+
+  const description = registeredTool(server, "get_property_photo").description;
+
+  assert.match(description, /MUST call/);
+  assert.match(description, /photo/i);
+  assert.match(description, /re-queries the current property record/i);
+  assert.match(description, /never answer a photo question from conversation history/i);
+});
+
+test("get_property_photo re-fetches the current record and attaches the image when a photo now exists", async () => {
+  const bytes = new Uint8Array([7, 7, 7]);
+  const property = { code: "CU2026-0003", photo_url: "/api/hermes/properties/CU2026-0003/photo" };
+  let getPropertyCalls = 0;
+  const client = createPropertyApiClient({
+    apiUrl: "https://odoo.example.test",
+    token: "test-token",
+    fetchImpl: async (url) => {
+      if (url.pathname.endsWith("/photo")) {
+        return binaryResponse(bytes);
+      }
+      getPropertyCalls += 1;
+      return jsonResponse(200, { property });
+    },
+  });
+  const server = createHermesPropertyServer(() => client);
+
+  const result = await registeredTool(server, "get_property_photo").handler({ property_code: "CU2026-0003" });
+
+  assert.equal(getPropertyCalls, 1);
+  assert.equal(result.content.length, 2);
+  assert.deepEqual(result.content[0], { type: "text", text: JSON.stringify({ property }) });
+  assert.deepEqual(result.content[1], { type: "image", data: Buffer.from(bytes).toString("base64"), mimeType: "image/png" });
+  assert.deepEqual(result.structuredContent, { property });
+});
+
+test("get_property_photo does not invent a photo when the current record has none", async () => {
+  const property = { code: "CU2026-0003", photo_url: null };
+  let photoRequested = false;
+  const client = createPropertyApiClient({
+    apiUrl: "https://odoo.example.test",
+    token: "test-token",
+    fetchImpl: async (url) => {
+      if (url.pathname.endsWith("/photo")) {
+        photoRequested = true;
+      }
+      return jsonResponse(200, { property });
+    },
+  });
+  const server = createHermesPropertyServer(() => client);
+
+  const result = await registeredTool(server, "get_property_photo").handler({ property_code: "CU2026-0003" });
+
+  assert.equal(photoRequested, false);
+  assert.deepEqual(result.content, [{ type: "text", text: JSON.stringify({ property }) }]);
+  assert.deepEqual(result.structuredContent, { property });
+});
+
+test("a zone-only conversational search omits budget and size filters", async () => {
+  let receivedUrl;
+  const client = createPropertyApiClient({
+    apiUrl: "https://odoo.example.test",
+    token: "test-token",
+    fetchImpl: async (url) => {
+      receivedUrl = url;
+      return jsonResponse(200, { properties: [] });
+    },
+  });
+
+  await client.searchProperties({ zone: "Jocay", limit: 20 });
+
+  assert.equal(receivedUrl.searchParams.get("zone"), "Jocay");
+  assert.equal(receivedUrl.searchParams.get("availability"), "available");
+  assert.equal(receivedUrl.searchParams.get("limit"), "20");
+  assert.equal(receivedUrl.searchParams.has("max_rent"), false);
+  assert.equal(receivedUrl.searchParams.has("min_area"), false);
+});
+
+test("search_properties, get_available_properties and submit_property_enquiry never ask for budget or size upfront", () => {
+  const server = createHermesPropertyServer(() =>
+    createPropertyApiClient({ apiUrl: "https://odoo.example.test", token: "test-token" }),
+  );
+
+  const searchDescription = registeredTool(server, "search_properties").description;
+  const availableDescription = registeredTool(server, "get_available_properties").description;
+  const enquiryDescription = registeredTool(server, "submit_property_enquiry").description;
+
+  for (const description of [searchDescription, availableDescription, enquiryDescription]) {
+    assert.match(description, /never ask|volunteered/i);
+    assert.doesNotMatch(description, /always ask.*budget/i);
+  }
 });

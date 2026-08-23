@@ -84,6 +84,15 @@ class TestCommercialPropertyPhase18(TransactionCase):
         self.assertIn(matching, results)
         self.assertNotIn(other, results)
 
+    def test_search_public_units_zone_matches_building_name(self):
+        matching = self._create_published_unit(name="Jocay Tower")
+        other = self._create_published_unit(name="Other Tower")
+
+        results = self.env["commercial.property.unit"].search_public_units(zone="Jocay")
+
+        self.assertIn(matching, results)
+        self.assertNotIn(other, results)
+
     # max_rent is expressed in the public (USD) currency
 
     def test_search_public_units_max_rent_is_interpreted_in_public_currency(self):

@@ -259,61 +259,65 @@ can measure their conversion performance.
 Goal: keep a WhatsApp conversation focused on one unit at a time, capture buyer
 intent, and present each unit with a photo, visit options and a USD price.
 
-- [ ] Stop Hermes from listing or suggesting other available units once a
+- [x] Stop Hermes from listing or suggesting other available units once a
       prospect is discussing a specific unit; only call `search_properties`
       again if the prospect explicitly asks for alternatives or the unit they
       were discussing becomes unavailable.
-- [ ] Before searching or presenting a unit, have Hermes ask the prospect's
+- [x] Before searching or presenting a unit, have Hermes ask the prospect's
       desired zone/location if not already given. Add a matching `zone`/
       `location` filter to `search_public_units` and the
       `/api/hermes/properties` endpoint (soft match against
       `public_location_hint`/`city`, not an exact match).
-- [ ] Always ask the prospect's budget before or while presenting a unit, and
-      store it on `commercial.property.lead` as a new `budget` field, passed
-      through the `submit_enquiry` payload, so Managers can compare stated
-      willingness-to-pay against each unit's `public_monthly_rent`.
-- [ ] Add a manager-set `virtual_tour_url` field to `commercial.property.unit`
+- [x] Capture the prospect's budget when volunteered and store it on
+      `commercial.property.lead` as a new `budget` field, passed through the
+      `submit_enquiry` payload, so Managers can compare stated willingness-to-pay
+      against each unit's `public_monthly_rent`. Product direction changed
+      mid-phase (commit `2f07300` → later uncommitted revision): Hermes no
+      longer proactively asks for budget before/while presenting a unit; it
+      only records it if the prospect volunteers it spontaneously, matching the
+      "never lead with budget" policy from `4ab9f3c`.
+- [x] Add a manager-set `virtual_tour_url` field to `commercial.property.unit`
       (part of the publication quality checklist) and include it in
       `get_public_data()`.
-- [ ] Add an authenticated photo endpoint (e.g.
+- [x] Add an authenticated photo endpoint (e.g.
       `/api/hermes/properties/<code>/photo`) so Hermes/WhatsApp can fetch and
       attach the unit's `image_1920` as media; a bare link will not render
       inline in WhatsApp.
-- [ ] Make every unit reply from Hermes include: the photo (via the new
+- [x] Make every unit reply from Hermes include: the photo (via the new
       endpoint), the virtual tour link, and an explicit offer to request a
       physical visit (reusing the existing `visit_requested` flag already
-      accepted by `submit_enquiry`).
-- [ ] Convert `public_monthly_rent` to USD in `get_public_data()` using
+      accepted by `submit_enquiry`). Also added a dedicated `get_property_photo`
+      tool and a "refresh before answering" notice so Hermes never answers
+      availability/price/photo questions from stale conversation history.
+- [x] Convert `public_monthly_rent` to USD in `get_public_data()` using
       `res.currency` conversion rates, instead of returning the company's
       operating currency. Keep internal records (leases, rent, deposits)
       unchanged in their current currency.
-- [ ] Make the public currency a setting, not a hardcoded conversion. Add a
-  `res.config.settings` field (default USD) next to the other Hermes settings
-  instead of hardcoding USD in the controller, so a future market change
-  doesn't require a code change.
-- [ ] Verify `res.currency` exchange rates are actually kept fresh (a rate-update
-  cron or manual rate entry). A stale EUR->USD rate will misquote every price
-  Hermes sends; this becomes more visible now than before since managers
-  never saw the converted number.
-- [ ] Treat the zone/location filter as soft matching (`ilike`), not exact —
-  prospects phrase areas loosely. If it returns zero units, have Hermes ask
+- [x] Make the public currency a setting, not a hardcoded conversion. Added
+  `res.config.settings.hermes_public_currency_id` (default USD) next to the
+  other Hermes settings instead of hardcoding USD in the controller.
+- [x] Treat the zone/location filter as soft matching (`ilike`), not exact —
+  prospects phrase areas loosely. Also matches on building name in addition to
+  `public_location_hint`/city. If it returns zero units, have Hermes ask
   for a different area instead of a dead end.
-- [ ] Store the new `budget` field in USD, matching the now-USD
+- [x] Store the new `budget` field in USD, matching the now-USD
   `public_monthly_rent`, so Phase 16's demand/price reporting can compare them
   directly without a conversion step.
-- [ ] "Never mention other units" is a Hermes tool-use/system-prompt rule, not
-  just a backend change — also double check `get_public_data()` never leaks a
+- [x] "Never mention other units" is a Hermes tool-use/system-prompt rule, not
+  just a backend change — verified `get_public_data()` never leaks a
   sibling-unit hint (e.g. a "similar units" field) that would undercut it.
-- [ ] Reuse the same bearer-token check (`_is_authenticated`) on the new photo
-  endpoint. Consider serving a resized copy rather than the manager-facing
-  full-resolution `image_1920` to limit bandwidth and avoid exposing the
-  original asset.
-- [ ] Update Hermes's tool descriptions (from Phase 8) to document the new `zone`
+- [x] Reuse the same bearer-token check (`_is_authenticated`) on the new photo
+  endpoint. Still serves the manager-facing full-resolution `image_1920`
+  as-is rather than a resized copy — the bandwidth/exposure optimization
+  from this note was not implemented.
+- [x] Update Hermes's tool descriptions (from Phase 8) to document the new `zone`
   filter and the USD currency, so the AI's behavior matches the backend
   change immediately rather than drifting from stale tool docs.
-Done when: A WhatsApp prospect is asked for zone and budget, sees prices in
-USD, receives a photo and virtual-tour link with every unit reply, is offered
-a physical visit, and is never shown other units unless they ask.
+Done when: A WhatsApp prospect can search by zone, sees prices in USD,
+receives a photo and virtual-tour link with every unit reply, is offered
+a physical visit, has any spontaneously-volunteered budget recorded, and is
+never shown other units unless they ask. Open: verifying exchange-rate
+freshness in the live database, and optionally serving a resized photo.
 
 
 
