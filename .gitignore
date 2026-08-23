@@ -6,6 +6,7 @@
 *.swp
 
 .tools-venv/
+.env
 .env.e2e
 .env.e2e.runtime
 node_modules/
