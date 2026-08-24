@@ -232,8 +232,46 @@ class CommercialProperty(models.Model):
                 income += active_lease.monthly_rent or unit.monthly_rent
             property_record.expected_monthly_income = income
 
+    def _sync_availability_from_units(self):
+        """Synchronize property availability based on all associated units.
+        
+        Rules:
+        - If at least one unit is available → property is available
+        - If no units are available, pick the most restrictive state from units:
+          - rented (if any unit is rented)
+          - reserved (if any unit is reserved and none rented)
+          - maintenance (if any unit is in maintenance and none rented/reserved)
+          - inactive (if all units are inactive)
+        """
+        for property_record in self:
+            units = property_record.unit_ids
+            if not units:
+                # No units means we keep current state or default to available
+                continue
+            
+            # Check if any unit is available
+            available_units = units.filtered(lambda u: u.state == "available")
+            if available_units:
+                target_state = "available"
+            else:
+                # No available units - determine state by priority
+                if units.filtered(lambda u: u.state == "rented"):
+                    target_state = "rented"
+                elif units.filtered(lambda u: u.state == "reserved"):
+                    target_state = "reserved"
+                elif units.filtered(lambda u: u.state == "maintenance"):
+                    target_state = "maintenance"
+                else:
+                    target_state = "inactive"
+            
+            if property_record.state != target_state:
+                property_record.state = target_state
+
     def _sync_availability_from_leases(self):
-        """Keep the inventory status aligned with the property's confirmed lease."""
+        """Keep the inventory status aligned with the property's confirmed lease.
+        
+        Deprecated in favor of unit-based sync, but kept for compatibility.
+        """
         today = fields.Date.context_today(self)
         for property_record in self:
             active_lease = property_record.lease_ids.filtered(lambda lease: lease.state == "active")[:1]

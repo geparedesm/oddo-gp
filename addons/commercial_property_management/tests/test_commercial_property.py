@@ -500,3 +500,154 @@ class TestCommercialProperty(TransactionCase):
             ),
             3,
         )
+
+    def test_property_availability_syncs_when_any_unit_is_available(self):
+        """Test that property becomes available when at least one unit is available."""
+        building = self.env["commercial.property"].with_user(self.manager).create(
+            {"name": "Multi-unit Building", "area": 100, "monthly_rent": 1500}
+        )
+        # Create additional units
+        unit2 = self.env["commercial.property.unit"].with_user(self.manager).create(
+            {"property_id": building.id, "name": "Unit 2", "area": 80, "monthly_rent": 2200}
+        )
+        unit3 = self.env["commercial.property.unit"].with_user(self.manager).create(
+            {"property_id": building.id, "name": "Unit 3", "area": 90, "monthly_rent": 2000}
+        )
+        
+        # All units are available, property should be available
+        self.assertEqual(building.state, "available")
+        
+        # Rent out unit 2
+        tenant = self.env["res.partner"].with_user(self.manager).create(
+            {"name": "Tenant A", "is_commercial_tenant": True}
+        )
+        lease = self.env["commercial.lease"].with_user(self.manager).create({
+            "property_id": building.id,
+            "unit_id": unit2.id,
+            "tenant_id": tenant.id,
+            "start_date": self.today,
+            "end_date": self.today + timedelta(days=30),
+            "monthly_rent": 2200
+        })
+        lease.action_activate()
+        
+        # Unit 2 is rented, but units 1 and 3 are still available
+        # Property should still be available
+        self.assertEqual(unit2.state, "rented")
+        self.assertEqual(building.default_unit_id.state, "available")
+        self.assertEqual(unit3.state, "available")
+        self.assertEqual(building.state, "available")
+
+    def test_property_becomes_unavailable_when_all_units_are_rented(self):
+        """Test that property becomes rented when all units are rented."""
+        building = self.env["commercial.property"].with_user(self.manager).create(
+            {"name": "Multi-unit Building", "area": 100, "monthly_rent": 1500}
+        )
+        unit2 = self.env["commercial.property.unit"].with_user(self.manager).create(
+            {"property_id": building.id, "name": "Unit 2", "area": 80, "monthly_rent": 2200}
+        )
+        
+        tenant1 = self.env["res.partner"].with_user(self.manager).create(
+            {"name": "Tenant A", "is_commercial_tenant": True}
+        )
+        tenant2 = self.env["res.partner"].with_user(self.manager).create(
+            {"name": "Tenant B", "is_commercial_tenant": True}
+        )
+        
+        # Rent out both units
+        lease1 = self.env["commercial.lease"].with_user(self.manager).create({
+            "property_id": building.id,
+            "unit_id": building.default_unit_id.id,
+            "tenant_id": tenant1.id,
+            "start_date": self.today,
+            "end_date": self.today + timedelta(days=30),
+            "monthly_rent": 1500
+        })
+        lease1.action_activate()
+        
+        lease2 = self.env["commercial.lease"].with_user(self.manager).create({
+            "property_id": building.id,
+            "unit_id": unit2.id,
+            "tenant_id": tenant2.id,
+            "start_date": self.today,
+            "end_date": self.today + timedelta(days=30),
+            "monthly_rent": 2200
+        })
+        lease2.action_activate()
+        
+        # All units are rented, property should be rented
+        self.assertEqual(building.default_unit_id.state, "rented")
+        self.assertEqual(unit2.state, "rented")
+        self.assertEqual(building.state, "rented")
+
+    def test_property_availability_updates_on_manual_unit_state_change(self):
+        """Test that property state updates when unit state is changed manually."""
+        building = self.env["commercial.property"].with_user(self.manager).create(
+            {"name": "Multi-unit Building", "area": 100, "monthly_rent": 1500}
+        )
+        unit2 = self.env["commercial.property.unit"].with_user(self.manager).create(
+            {"property_id": building.id, "name": "Unit 2", "area": 80, "monthly_rent": 2200}
+        )
+        
+        # Both units available
+        self.assertEqual(building.state, "available")
+        
+        # Manually set unit 2 to maintenance
+        unit2.write({"state": "maintenance"})
+        
+        # Property should still be available (unit 1 is still available)
+        self.assertEqual(building.state, "available")
+        
+        # Manually set unit 1 to maintenance too
+        building.default_unit_id.write({"state": "maintenance"})
+        
+        # Now property should be in maintenance
+        self.assertEqual(building.state, "maintenance")
+
+    def test_property_state_priority_when_no_units_available(self):
+        """Test property state priority: rented > reserved > maintenance > inactive."""
+        building = self.env["commercial.property"].with_user(self.manager).create(
+            {"name": "Multi-unit Building", "area": 100, "monthly_rent": 1500}
+        )
+        unit2 = self.env["commercial.property.unit"].with_user(self.manager).create(
+            {"property_id": building.id, "name": "Unit 2", "area": 80, "monthly_rent": 2200, "state": "maintenance"}
+        )
+        unit3 = self.env["commercial.property.unit"].with_user(self.manager).create(
+            {"property_id": building.id, "name": "Unit 3", "area": 90, "monthly_rent": 2000, "state": "reserved"}
+        )
+        
+        # Set all units to different unavailable states
+        building.default_unit_id.write({"state": "inactive"})
+        
+        # Property should be reserved (highest priority among the three)
+        self.assertEqual(building.state, "reserved")
+        
+        # Change unit3 to rented
+        unit3.write({"state": "rented"})
+        
+        # Property should now be rented (higher priority than maintenance/inactive)
+        self.assertEqual(building.state, "rented")
+
+    def test_property_syncs_from_api_and_imports(self):
+        """Test that sync works from various entry points: API, imports, automations."""
+        building = self.env["commercial.property"].with_user(self.manager).create(
+            {"name": "API Test Building", "area": 100, "monthly_rent": 1500}
+        )
+        
+        # Create unit via ORM (simulating import/API call)
+        self.env["commercial.property.unit"].create({
+            "property_id": building.id,
+            "name": "API Unit",
+            "area": 80,
+            "monthly_rent": 2200,
+            "state": "rented"
+        })
+        
+        # Property should still be available (default unit is available)
+        self.assertEqual(building.state, "available")
+        
+        # Update default unit via write (simulating automation)
+        building.default_unit_id.write({"state": "rented"})
+        
+        # Now all units are rented, property should be rented
+        self.assertEqual(building.state, "rented")
