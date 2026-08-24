@@ -5,3 +5,7 @@ from . import test_commercial_property_listing
 from . import test_hermes_api
 from . import test_commercial_property_phase18
 from . import test_commercial_property_phase19
+from . import test_commercial_property_unit_gallery
+from . import test_commercial_property_unit_characteristics
+from . import test_unit_characteristics_views
+from . import test_characteristics_e2e_smoke

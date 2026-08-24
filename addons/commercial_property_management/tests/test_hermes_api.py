@@ -224,6 +224,181 @@ class TestHermesPublicData(TransactionCase):
         self.assertFalse(lead.phone)
         self.assertFalse(lead.whatsapp_sender)
 
+    def test_get_public_data_includes_characteristics(self):
+        """Test that get_public_data() includes characteristics when non-empty."""
+        unit = self.env["commercial.property.unit"].create({
+            "property_id": self.public_property.id,
+            "name": "Test Unit with Characteristics",
+            "area": 85,
+            "monthly_rent": 1500,
+            "public_name": "Cozy 2BR Apartment",
+            "public_description": "Perfect for small families",
+            "public_monthly_rent": 1600,
+            "is_published": True,
+            "bedrooms": 2,
+            "bathrooms": 2,
+            "parking_spaces": 1,
+            "furnished": True,
+            "pet_friendly": True,
+        })
+        
+        public_data = unit.get_public_data()
+        
+        # Verify characteristics key exists
+        self.assertIn("characteristics", public_data)
+        chars = public_data["characteristics"]
+        
+        # Verify non-empty values are included
+        self.assertEqual(chars["bedrooms"], 2)
+        self.assertEqual(chars["bathrooms"], 2)
+        self.assertEqual(chars["parking_spaces"], 1)
+        self.assertTrue(chars["furnished"])
+        self.assertTrue(chars["pet_friendly"])
+        
+        # Verify characteristics_summary is present
+        self.assertIn("characteristics_summary", public_data)
+        self.assertIn("2 hab.", public_data["characteristics_summary"])
+        self.assertIn("2 baños", public_data["characteristics_summary"])
+
+    def test_get_public_data_excludes_empty_characteristics(self):
+        """Test that get_public_data() excludes empty/false characteristics."""
+        unit = self.env["commercial.property.unit"].create({
+            "property_id": self.public_property.id,
+            "name": "Test Unit Minimal",
+            "area": 50,
+            "monthly_rent": 800,
+            "public_name": "Studio",
+            "public_description": "Small unit",
+            "public_monthly_rent": 900,
+            "is_published": True,
+            "bedrooms": 1,
+            "bathrooms": 0,
+            "parking_spaces": 0,
+            "furnished": False,
+            "pet_friendly": False,
+        })
+        
+        public_data = unit.get_public_data()
+        chars = public_data.get("characteristics", {})
+        
+        # Verify only non-empty values are present
+        self.assertIn("bedrooms", chars)
+        self.assertNotIn("bathrooms", chars, "bathrooms=0 should not be in characteristics")
+        self.assertNotIn("parking_spaces", chars, "parking_spaces=0 should not be in characteristics")
+        self.assertNotIn("furnished", chars, "furnished=False should not be in characteristics")
+        self.assertNotIn("pet_friendly", chars, "pet_friendly=False should not be in characteristics")
+
+    def test_get_public_data_characteristics_summary_format(self):
+        """Test that characteristics_summary uses correct Spanish format and separator."""
+        unit = self.env["commercial.property.unit"].create({
+            "property_id": self.public_property.id,
+            "name": "Test Unit Full",
+            "area": 150,
+            "monthly_rent": 2000,
+            "public_name": "Full House",
+            "public_description": "Complete property",
+            "public_monthly_rent": 2100,
+            "is_published": True,
+            "bedrooms": 3,
+            "bathrooms": 2,
+            "half_bathrooms": 1,
+            "parking_spaces": 2,
+            "furnished": True,
+            "pet_friendly": True,
+        })
+        
+        public_data = unit.get_public_data()
+        summary = public_data.get("characteristics_summary", "")
+        
+        # Verify Spanish labels are used
+        self.assertIn("3 hab.", summary, "Should use Spanish 'hab.' for bedrooms")
+        self.assertIn("baños", summary, "Should use Spanish 'baños' for bathrooms")
+        self.assertIn("parking", summary, "Should include parking")
+        self.assertIn("Amueblado", summary, "Should use Spanish 'Amueblado' for furnished")
+        self.assertIn("Mascotas", summary, "Should use Spanish 'Mascotas' for pet-friendly")
+        
+        # Verify middot separator is used
+        self.assertIn(" · ", summary, "Should use Unicode middot as separator")
+        
+        # When bathrooms=2, half_bathrooms=1, should show only combined 2.5, not both
+        self.assertNotIn("2 baños · 2.5 baños", summary, "Should not show both 2 and 2.5")
+        self.assertIn("2.5 baños", summary, "Should show combined total 2.5 baños")
+
+    def test_get_public_data_all_characteristics_json_serializable(self):
+        """Test that get_public_data() with all characteristics is JSON-serializable."""
+        unit = self.env["commercial.property.unit"].create({
+            "property_id": self.public_property.id,
+            "name": "Test Unit JSON",
+            "area": 200,
+            "monthly_rent": 2500,
+            "public_name": "JSON Test",
+            "public_description": "Test JSON serialization",
+            "public_monthly_rent": 2600,
+            "is_published": True,
+            "bedrooms": 4,
+            "bathrooms": 3,
+            "parking_spaces": 2,
+            "floor_number": 5,
+            "total_floors": 10,
+            "storage_rooms": 1,
+            "balcony_area_sqm": 12.5,
+            "furnished": True,
+            "has_balcony": True,
+            "has_laundry": True,
+            "pet_friendly": True,
+        })
+        
+        public_data = unit.get_public_data()
+        
+        # This should not raise an exception
+        json_str = json.dumps(public_data)
+        self.assertIsInstance(json_str, str)
+        
+        # Verify we can parse it back
+        parsed = json.loads(json_str)
+        self.assertIsInstance(parsed, dict)
+        self.assertIn("characteristics", parsed)
+        self.assertIn("characteristics_summary", parsed)
+
+    def test_search_public_units_respects_existing_filters(self):
+        """Test that search_public_units still works with existing filters (no regression)."""
+        # Create multiple units
+        unit_big = self.env["commercial.property.unit"].create({
+            "property_id": self.public_property.id,
+            "name": "Big Unit",
+            "area": 200,
+            "monthly_rent": 3000,
+            "public_name": "Big Unit",
+            "public_description": "Large apartment",
+            "public_monthly_rent": 3100,
+            "is_published": True,
+        })
+        
+        unit_small = self.env["commercial.property.unit"].create({
+            "property_id": self.public_property.id,
+            "name": "Small Unit",
+            "area": 50,
+            "monthly_rent": 500,
+            "public_name": "Small Unit",
+            "public_description": "Tiny studio",
+            "public_monthly_rent": 550,
+            "is_published": True,
+        })
+        
+        # Search by area
+        results = self.env["commercial.property.unit"].search_public_units(min_area=100)
+        self.assertIn(unit_big, results)
+        self.assertNotIn(unit_small, results)
+        
+        # Search by rent
+        results = self.env["commercial.property.unit"].search_public_units(max_rent=1000)
+        self.assertIn(unit_small, results)
+        self.assertNotIn(unit_big, results)
+        
+        # Search by code
+        results = self.env["commercial.property.unit"].search_public_units(code=unit_big.code)
+        self.assertEqual(results, unit_big)
+
 
 @tagged("post_install", "-at_install")
 class TestHermesEnquiryIdentity(HttpCase):

@@ -5,7 +5,7 @@
         <field name="model">commercial.property.unit</field>
         <field name="arch" type="xml">
             <tree decoration-success="state == 'available'" decoration-info="state == 'rented'" decoration-warning="state == 'reserved'">
-                <field name="code"/><field name="name"/><field name="property_id"/><field name="area"/><field name="monthly_rent" widget="monetary"/><field name="currency_id" invisible="1"/><field name="state" widget="badge"/><field name="is_published"/>
+                <field name="code"/><field name="name"/><field name="bedrooms"/><field name="bathrooms"/><field name="parking_spaces"/><field name="property_id"/><field name="area"/><field name="monthly_rent" widget="monetary"/><field name="currency_id" invisible="1"/><field name="state" widget="badge"/><field name="is_published"/>
             </tree>
         </field>
     </record>
@@ -80,6 +80,7 @@
                     </field>
                     <div class="oe_title"><h1><field name="name" placeholder="e.g. Ground floor corner unit"/></h1><div><field name="code" readonly="1"/></div></div>
                     <group><group string="Unit Details"><field name="property_id" options="{'no_create': True}"/><field name="floor"/><field name="entrance_description"/><field name="area"/><field name="monthly_rent" widget="monetary"/><field name="currency_id" invisible="1"/><field name="available_date"/></group><group string="Availability"><field name="state"/><field name="is_published"/><field name="active"/></group></group>
+                    <group string="Unit Characteristics"><group><field name="bedrooms"/><field name="bathrooms"/><field name="half_bathrooms"/><field name="parking_spaces"/><field name="furnished"/><field name="pet_friendly"/></group><group><field name="floor_number"/><field name="total_floors"/><field name="balcony_area_sqm"/><field name="storage_rooms"/><field name="has_balcony"/><field name="has_laundry"/></group></group>
                     <notebook><page string="Public Listing" groups="commercial_property_management.group_property_manager"><group><field name="public_name"/><field name="public_monthly_rent" widget="monetary"/><field name="public_feature_ids" widget="many2many_tags"/></group><field name="public_description"/></page><page string="Lease History" groups="commercial_property_management.group_property_manager"><field name="lease_ids" context="{'default_property_id': property_id, 'default_unit_id': active_id}"><tree><field name="name"/><field name="tenant_id"/><field name="start_date"/><field name="end_date"/><field name="state"/></tree></field></page><page string="Internal Notes"><field name="notes"/></page></notebook>
                 </sheet>
             </form>
@@ -90,8 +91,42 @@
         <field name="model">commercial.property.unit</field>
         <field name="arch" type="xml">
             <search>
-                <field name="name"/><field name="code"/><field name="property_id"/><filter name="available" string="Available" domain="[('state','=','available')]"/><filter name="published" string="Published" domain="[('is_published','=',True)]"/>
+                <field name="name"/><field name="code"/><field name="property_id"/><field name="bedrooms"/><field name="bathrooms"/><field name="parking_spaces"/><filter name="available" string="Available" domain="[('state','=','available')]"/><filter name="published" string="Published" domain="[('is_published','=',True)]"/><filter name="furnished" string="Amoblado" domain="[('furnished','=',True)]"/><filter name="pet_friendly" string="Acepta Mascotas" domain="[('pet_friendly','=',True)]"/><filter name="has_parking" string="Con Estacionamiento" domain="[('parking_spaces','>',0)]"/><group expand="0" string="Group By"><filter name="group_bedrooms" string="Dormitorios" context="{'group_by':'bedrooms'}"/><filter name="group_bathrooms" string="Baños" context="{'group_by':'bathrooms'}"/><filter name="group_parking" string="Estacionamiento" context="{'group_by':'parking_spaces'}"/></group>
             </search>
+        </field>
+    </record>
+    <record id="view_commercial_property_unit_kanban" model="ir.ui.view">
+        <field name="name">commercial.property.unit.kanban</field>
+        <field name="model">commercial.property.unit</field>
+        <field name="arch" type="xml">
+            <kanban>
+                <field name="id"/>
+                <field name="code"/>
+                <field name="name"/>
+                <field name="monthly_rent"/>
+                <field name="state"/>
+                <field name="bedrooms"/>
+                <field name="bathrooms"/>
+                <field name="parking_spaces"/>
+                <field name="area"/>
+                <field name="currency_id"/>
+                <templates>
+                    <t t-name="kanban-box">
+                        <div class="oe_kanban_global_click">
+                            <div class="oe_kanban_content">
+                                <strong><field name="name"/></strong>
+                                <div><field name="code"/> - <field name="monthly_rent" widget="monetary"/></div>
+                                <div class="text-muted">
+                                    <t t-if="record.bedrooms.raw_value"><span t-esc="record.bedrooms.raw_value"/> hab.</t>
+                                    <t t-if="record.bathrooms.raw_value"> - <span t-esc="record.bathrooms.raw_value"/> baños</t>
+                                    <t t-if="record.parking_spaces.raw_value"> - <span t-esc="record.parking_spaces.raw_value"/> parking</t>
+                                </div>
+                                <field name="state" widget="badge"/>
+                            </div>
+                        </div>
+                    </t>
+                </templates>
+            </kanban>
         </field>
     </record>
 </odoo>

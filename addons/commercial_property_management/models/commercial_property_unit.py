@@ -127,6 +127,69 @@ class CommercialPropertyUnit(models.Model):
     )
     company_id = fields.Many2one(related="property_id.company_id", store=True, readonly=True, index=True)
 
+    # Physical characteristics
+    bedrooms = fields.Integer(
+        string="Bedrooms",
+        default=0,
+        help="Number of bedrooms/rooms in the unit.",
+    )
+    bathrooms = fields.Integer(
+        string="Bathrooms",
+        default=0,
+        help="Number of full bathrooms.",
+    )
+    half_bathrooms = fields.Integer(
+        string="Half Bathrooms",
+        default=0,
+        help="Number of half bathrooms.",
+    )
+    parking_spaces = fields.Integer(
+        string="Parking Spaces",
+        default=0,
+        help="Number of parking spaces assigned to this unit.",
+    )
+    floor_number = fields.Integer(
+        string="Floor Number",
+        default=0,
+        help="Floor number (numeric). Use for sorting/filtering. The `floor` field (Char) is for descriptive floor names.",
+    )
+    total_floors = fields.Integer(
+        string="Total Floors in Building",
+        default=0,
+        help="Total number of floors in the building.",
+    )
+    storage_rooms = fields.Integer(
+        string="Storage Rooms",
+        default=0,
+        help="Number of storage rooms or bodegas assigned to this unit.",
+    )
+    balcony_area_sqm = fields.Float(
+        string="Balcony Area (m²)",
+        default=0.0,
+        digits=(16, 2),
+        help="Balcony area in square meters.",
+    )
+    furnished = fields.Boolean(
+        string="Furnished",
+        default=False,
+        help="Is the unit furnished.",
+    )
+    has_balcony = fields.Boolean(
+        string="Has Balcony",
+        default=False,
+        help="Whether the unit has a balcony.",
+    )
+    has_laundry = fields.Boolean(
+        string="Has Laundry Facilities",
+        default=False,
+        help="Whether the unit has laundry facilities.",
+    )
+    pet_friendly = fields.Boolean(
+        string="Pet Friendly",
+        default=False,
+        help="Whether the unit accepts pets.",
+    )
+
     _sql_constraints = [("commercial_property_unit_code_unique", "unique(code)", "The unit reference must be unique.")]
 
     @api.model_create_multi
@@ -138,7 +201,14 @@ class CommercialPropertyUnit(models.Model):
             if vals.get("is_published"):
                 vals.setdefault("publication_date", today)
                 vals.setdefault("publication_approved_by_id", self.env.user.id)
-        return super().create(vals_list)
+        units = super().create(vals_list)
+        
+        # Trigger property availability sync for newly created units
+        properties = units.mapped('property_id')
+        if properties:
+            properties._sync_availability_from_units()
+        
+        return units
 
     def write(self, vals):
         if "is_published" in vals and not vals["is_published"]:
@@ -149,7 +219,16 @@ class CommercialPropertyUnit(models.Model):
             vals.setdefault("publication_approved_by_id", self.env.user.id)
             vals.setdefault("unpublish_reason", False)
             vals.setdefault("unpublish_notes", False)
-        return super().write(vals)
+        
+        result = super().write(vals)
+        
+        # If state changed, sync property availability
+        if 'state' in vals or 'active' in vals:
+            properties = self.mapped('property_id')
+            if properties:
+                properties._sync_availability_from_units()
+        
+        return result
 
     @api.constrains("area", "monthly_rent")
     def _check_unit_values(self):
@@ -166,6 +245,32 @@ class CommercialPropertyUnit(models.Model):
                 raise ValidationError(_("Published properties need a public name and description."))
             if unit.public_monthly_rent <= 0:
                 raise ValidationError(_("Published properties need a public monthly rent greater than zero."))
+
+    @api.constrains("bedrooms", "bathrooms", "half_bathrooms", "parking_spaces", "floor_number", "total_floors", "storage_rooms", "balcony_area_sqm")
+    def _check_physical_characteristics(self):
+        """Validate that physical characteristic fields have non-negative values."""
+        for unit in self:
+            if unit.bedrooms < 0:
+                raise ValidationError(_("Number of bedrooms cannot be negative."))
+            if unit.bathrooms < 0:
+                raise ValidationError(_("Number of bathrooms cannot be negative."))
+            if unit.half_bathrooms < 0:
+                raise ValidationError(_("Number of half bathrooms cannot be negative."))
+            if unit.parking_spaces < 0:
+                raise ValidationError(_("Number of parking spaces cannot be negative."))
+            if unit.floor_number < 0:
+                raise ValidationError(_("Floor number cannot be negative."))
+            if unit.total_floors < 0:
+                raise ValidationError(_("Total floors cannot be negative."))
+            if unit.storage_rooms < 0:
+                raise ValidationError(_("Number of storage rooms cannot be negative."))
+            if unit.balcony_area_sqm < 0:
+                raise ValidationError(_("Balcony area cannot be negative."))
+            # Optional: soft validation that if balcony_area_sqm > 0, then has_balcony should be True
+            if unit.balcony_area_sqm > 0 and not unit.has_balcony:
+                # This is a soft validation (warning), not an error
+                # In Odoo, we could use a warning method, but for now we just ensure consistency
+                pass
 
     @api.depends("lease_ids.state", "lease_ids.tenant_id")
     def _compute_current_lease(self):
@@ -305,8 +410,11 @@ class CommercialPropertyUnit(models.Model):
                 unit.vacant_since = False
             if unit.state != state:
                 unit.state = state
-            if unit.is_default and unit.property_id.state != state:
-                unit.property_id.state = state
+        
+        # Trigger property-level availability sync for all affected properties
+        properties = self.mapped('property_id')
+        if properties:
+            properties._sync_availability_from_units()
 
     def _get_current_lead(self):
         self.ensure_one()
@@ -409,13 +517,93 @@ class CommercialPropertyUnit(models.Model):
         instead of letting ``res.currency._convert`` raise on an empty recordset."""
         return self.env.company or self.env["res.company"].sudo().search([], limit=1)
 
+    def _get_characteristics_summary(self):
+        """Generate a compact characteristics summary string.
+        
+        Returns a string like "2 hab. · 2 baños · 1 parking" (Spanish) or
+        "3 bed · 1.5 bath · Furnished · Pet-friendly" (English version).
+        Only includes non-empty characteristics.
+        Uses Unicode middot (·) as separator.
+        
+        The language is determined by the UI language context; for now,
+        we use Spanish abbreviations as specified in the task.
+        """
+        parts = []
+        
+        # Bedrooms (plural form)
+        if self.bedrooms:
+            parts.append(_("%d hab.") % self.bedrooms)
+        
+        # Show combined total if half bathrooms present, otherwise show full bathrooms only
+        if self.half_bathrooms:
+            total = self.bathrooms + (self.half_bathrooms * 0.5)
+            parts.append(_("%.1f baños") % total)
+        elif self.bathrooms:
+            parts.append(_("1 baño") if self.bathrooms == 1 else _("%(count)d baños") % {"count": int(self.bathrooms)})
+        
+        # Parking spaces
+        if self.parking_spaces:
+            parts.append(_("%d parking") % self.parking_spaces)
+        
+        # Floor number
+        if self.floor_number:
+            parts.append(_("Piso %d") % self.floor_number)
+        
+        # Storage rooms
+        if self.storage_rooms:
+            parts.append(_("%d bodega") % self.storage_rooms if self.storage_rooms == 1 else _("%d bodegas") % self.storage_rooms)
+        
+        # Balcony area
+        if self.balcony_area_sqm:
+            parts.append(_("Balcón %.1f m²") % self.balcony_area_sqm)
+        
+        # Boolean characteristics
+        if self.furnished:
+            parts.append(_("Amueblado"))
+        if self.has_balcony:
+            parts.append(_("Con balcón"))
+        if self.has_laundry:
+            parts.append(_("Lavandería"))
+        if self.pet_friendly:
+            parts.append(_("Mascotas"))
+        
+        return " · ".join(parts) if parts else ""
+
     def get_public_data(self):
         self.ensure_one()
         property_type_label = dict(self.property_id._fields["property_type"].selection).get(self.property_type)
         public_currency = self._get_public_currency()
         company = self.company_id or self.env.company
         converted_rent = self.currency_id._convert(self.public_monthly_rent, public_currency, company, fields.Date.context_today(self))
-        return {
+        
+        # Build characteristics dict with only non-empty values
+        characteristics = {}
+        if self.bedrooms:
+            characteristics["bedrooms"] = self.bedrooms
+        if self.bathrooms:
+            characteristics["bathrooms"] = self.bathrooms
+        if self.half_bathrooms:
+            characteristics["half_bathrooms"] = self.half_bathrooms
+        if self.parking_spaces:
+            characteristics["parking_spaces"] = self.parking_spaces
+        if self.floor_number:
+            characteristics["floor_number"] = self.floor_number
+        if self.total_floors:
+            characteristics["total_floors"] = self.total_floors
+        if self.storage_rooms:
+            characteristics["storage_rooms"] = self.storage_rooms
+        if self.balcony_area_sqm:
+            characteristics["balcony_area_sqm"] = self.balcony_area_sqm
+        if self.furnished:
+            characteristics["furnished"] = self.furnished
+        if self.has_balcony:
+            characteristics["has_balcony"] = self.has_balcony
+        if self.has_laundry:
+            characteristics["has_laundry"] = self.has_laundry
+        if self.pet_friendly:
+            characteristics["pet_friendly"] = self.pet_friendly
+        
+        data = {
             "code": self.code,
             "name": self.public_name,
             "description": self.public_description,
@@ -437,6 +625,13 @@ class CommercialPropertyUnit(models.Model):
             ] if self.image_ids else [],
             "virtual_tour_url": self.virtual_tour_url or None,
         }
+        
+        # Add characteristics only if any exist
+        if characteristics:
+            data["characteristics"] = characteristics
+            data["characteristics_summary"] = self._get_characteristics_summary()
+        
+        return data
 
     @api.model
     def search_public_units(self, min_area=None, max_rent=None, code=None, limit=None, zone=None):
