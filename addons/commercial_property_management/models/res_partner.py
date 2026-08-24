@@ -18,3 +18,13 @@ class ResPartner(models.Model):
         groups="commercial_property_management.group_property_manager",
         help="Private operational notes. These are not visible to Property Users or portal users.",
     )
+    tenant_id_document = fields.Binary(
+        string="Cédula / Documento de Identidad",
+        attachment=True,
+        groups="commercial_property_management.group_property_manager",
+        help="Upload the tenant's identification document (PDF).",
+    )
+    tenant_id_document_filename = fields.Char(
+        string="ID Document Filename",
+        groups="commercial_property_management.group_property_manager",
+    )
