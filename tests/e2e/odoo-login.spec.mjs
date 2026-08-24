@@ -376,7 +376,7 @@ test("an administrator can activate a lease and review its property history", as
   await page.getByLabel("Monthly Rent", { exact: true }).fill("1500");
   await page.getByRole("button", { name: "Save manually" }).click();
   await page.getByRole("button", { name: "Activate", exact: true }).click();
-  await expect(page.getByText("Active", { exact: true })).toBeVisible();
+  await expect(page.getByRole("radio", { name: "Active" })).toBeChecked();
 
   await openLeases(page);
   await page.getByRole("combobox", { name: "Property" }).fill(propertyName);
@@ -648,19 +648,13 @@ test("an administrator can record a lease penalty, collect it, and renew the lea
   await page.getByLabel("Monthly Rent", { exact: true }).fill("1200");
   await page.getByRole("button", { name: "Save manually" }).click();
   await page.getByRole("button", { name: "Activate", exact: true }).click();
-  await expect(page.getByText("Active", { exact: true })).toBeVisible();
+  await expect(page.getByRole("radio", { name: "Active" })).toBeChecked();
 
   await page.getByRole("tab", { name: "Penalties" }).click();
   await expect(page.getByRole("columnheader", { name: "Date" })).toBeVisible();
   const penaltySelectedRow = page.locator("tr.o_selected_row");
-  await expect(async () => {
-    const errorDialog = page.getByRole("dialog");
-    if (await errorDialog.isVisible().catch(() => false)) {
-      await page.getByRole("button", { name: "Ok" }).click();
-    }
-    await page.getByRole("button", { name: "Add a line" }).click();
-    await expect(penaltySelectedRow).toBeVisible({ timeout: 3000 });
-  }).toPass({ timeout: 20000 });
+  await page.getByRole("button", { name: "Add a line" }).click();
+  await expect(penaltySelectedRow).toBeVisible({ timeout: 10000 });
   await penaltySelectedRow.locator('[name="amount"] input').fill("150");
   await page.getByRole("button", { name: "Save manually" }).click();
   await page.locator("tr").filter({ hasText: "150.00" }).getByRole("button", { name: "Collect" }).click();
