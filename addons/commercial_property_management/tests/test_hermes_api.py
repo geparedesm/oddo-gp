@@ -1,3 +1,4 @@
+import base64
 import json
 import uuid
 from types import SimpleNamespace
@@ -504,11 +505,194 @@ class TestHermesEnquiryIdentity(HttpCase):
         response = self._post_enquiry(
             {
                 "name": "Explicit Phone Prospect",
-                "phone": "+12025550199",
+                "phone": "+120****0199",
                 "consent": True,
             },
             mcp=False,
         )
 
         self.assertEqual(response.status_code, 201)
+        self.__class__._executed_http_cases.add(self._testMethodName)
+
+    def test_get_property_photo_without_index_returns_first_image(self):
+        """Test backward compatibility: /photo without index returns first image"""
+        dummy_image = base64.b64encode(b"GIF89a\x01\x00\x01\x00\x00\x00\x00\x21\xf9\x04\x01\n\x00\x01\x00,\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02D\x01\x00;")
+        
+        # Create two images
+        self.env["commercial.property.unit.image"].create(
+            {
+                "unit_id": self.unit.id,
+                "image_1920": dummy_image,
+                "sequence": 10,
+                "name": "First Photo",
+            }
+        )
+        self.env["commercial.property.unit.image"].create(
+            {
+                "unit_id": self.unit.id,
+                "image_1920": dummy_image,
+                "sequence": 20,
+                "name": "Second Photo",
+            }
+        )
+        self.env.cr.commit()
+        self._signal_http_worker_cache_invalidation()
+        
+        # Request without index parameter
+        response = self.url_open(
+            "/api/hermes/properties/%s/photo" % self.unit.code,
+            headers={"Authorization": "Bearer %s" % self.token},
+        )
+        
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.headers.get("Content-Type"), "image/png")
+        self.assertEqual(response.content, base64.b64decode(dummy_image))
+        self.__class__._executed_http_cases.add(self._testMethodName)
+
+    def test_get_property_photo_with_index_parameter(self):
+        """Test that /photo?index=N returns the Nth image"""
+        dummy_image = base64.b64encode(b"GIF89a\x01\x00\x01\x00\x00\x00\x00\x21\xf9\x04\x01\n\x00\x01\x00,\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02D\x01\x00;")
+        
+        # Create two images
+        self.env["commercial.property.unit.image"].create(
+            {
+                "unit_id": self.unit.id,
+                "image_1920": dummy_image,
+                "sequence": 10,
+                "name": "First Photo",
+            }
+        )
+        self.env["commercial.property.unit.image"].create(
+            {
+                "unit_id": self.unit.id,
+                "image_1920": dummy_image,
+                "sequence": 20,
+                "name": "Second Photo",
+            }
+        )
+        self.env.cr.commit()
+        self._signal_http_worker_cache_invalidation()
+        
+        # Request with index=0
+        response0 = self.url_open(
+            "/api/hermes/properties/%s/photo?index=0" % self.unit.code,
+            headers={"Authorization": "Bearer %s" % self.token},
+        )
+        self.assertEqual(response0.status_code, 200)
+        self.assertEqual(response0.content, base64.b64decode(dummy_image))
+        
+        # Request with index=1
+        response1 = self.url_open(
+            "/api/hermes/properties/%s/photo?index=1" % self.unit.code,
+            headers={"Authorization": "Bearer %s" % self.token},
+        )
+        self.assertEqual(response1.status_code, 200)
+        self.assertEqual(response1.content, base64.b64decode(dummy_image))
+        
+        self.__class__._executed_http_cases.add(self._testMethodName)
+
+    def test_get_property_photo_invalid_index_returns_400(self):
+        """Test that /photo?index=invalid returns 400"""
+        dummy_image = base64.b64encode(b"GIF89a\x01\x00\x01\x00\x00\x00\x00\x21\xf9\x04\x01\n\x00\x01\x00,\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02D\x01\x00;")
+        
+        self.env["commercial.property.unit.image"].create(
+            {
+                "unit_id": self.unit.id,
+                "image_1920": dummy_image,
+                "sequence": 10,
+            }
+        )
+        self.env.cr.commit()
+        self._signal_http_worker_cache_invalidation()
+        
+        response = self.url_open(
+            "/api/hermes/properties/%s/photo?index=invalid" % self.unit.code,
+            headers={"Authorization": "Bearer %s" % self.token},
+        )
+        
+        self.assertEqual(response.status_code, 400)
+        data = json.loads(response.text)
+        self.assertEqual(data["error"]["code"], "invalid_parameter")
+        self.__class__._executed_http_cases.add(self._testMethodName)
+
+    def test_get_property_photo_out_of_range_index_returns_404(self):
+        """Test that /photo?index=999 returns 404"""
+        dummy_image = base64.b64encode(b"GIF89a\x01\x00\x01\x00\x00\x00\x00\x21\xf9\x04\x01\n\x00\x01\x00,\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02D\x01\x00;")
+        
+        self.env["commercial.property.unit.image"].create(
+            {
+                "unit_id": self.unit.id,
+                "image_1920": dummy_image,
+                "sequence": 10,
+            }
+        )
+        self.env.cr.commit()
+        self._signal_http_worker_cache_invalidation()
+        
+        response = self.url_open(
+            "/api/hermes/properties/%s/photo?index=999" % self.unit.code,
+            headers={"Authorization": "Bearer %s" % self.token},
+        )
+        
+        self.assertEqual(response.status_code, 404)
+        data = json.loads(response.text)
+        self.assertEqual(data["error"]["code"], "not_found")
+        self.__class__._executed_http_cases.add(self._testMethodName)
+
+    def test_get_property_photos_metadata_returns_array(self):
+        """Test that /photos endpoint returns array of photo metadata"""
+        dummy_image = base64.b64encode(b"GIF89a\x01\x00\x01\x00\x00\x00\x00\x21\xf9\x04\x01\n\x00\x01\x00,\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02D\x01\x00;")
+        
+        # Create two images
+        self.env["commercial.property.unit.image"].create(
+            {
+                "unit_id": self.unit.id,
+                "image_1920": dummy_image,
+                "sequence": 10,
+                "name": "First Photo",
+            }
+        )
+        self.env["commercial.property.unit.image"].create(
+            {
+                "unit_id": self.unit.id,
+                "image_1920": dummy_image,
+                "sequence": 20,
+                "name": "Second Photo",
+            }
+        )
+        self.env.cr.commit()
+        self._signal_http_worker_cache_invalidation()
+        
+        response = self.url_open(
+            "/api/hermes/properties/%s/photos" % self.unit.code,
+            headers={"Authorization": "Bearer %s" % self.token},
+        )
+        
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.text)
+        self.assertIn("photos", data)
+        self.assertIn("count", data)
+        self.assertEqual(data["count"], 2)
+        self.assertEqual(len(data["photos"]), 2)
+        
+        # Verify structure of each photo entry
+        for idx, photo in enumerate(data["photos"]):
+            self.assertEqual(photo["index"], idx)
+            self.assertIn("url", photo)
+            self.assertIn("photo?index=%d" % idx, photo["url"])
+            self.assertIn("name", photo)
+        
+        self.__class__._executed_http_cases.add(self._testMethodName)
+
+    def test_get_property_photos_metadata_empty_gallery(self):
+        """Test that /photos returns empty array when no images"""
+        response = self.url_open(
+            "/api/hermes/properties/%s/photos" % self.unit.code,
+            headers={"Authorization": "Bearer %s" % self.token},
+        )
+        
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.text)
+        self.assertEqual(data["count"], 0)
+        self.assertEqual(len(data["photos"]), 0)
         self.__class__._executed_http_cases.add(self._testMethodName)

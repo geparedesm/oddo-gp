@@ -31,7 +31,13 @@ class CommercialPropertyUnit(models.Model):
     monthly_rent = fields.Monetary(required=True)
     currency_id = fields.Many2one(related="property_id.currency_id", store=True, readonly=True)
     available_date = fields.Date(string="Available From")
-    image_1920 = fields.Image(string="Photo", max_width=1920, max_height=1920)
+    image_ids = fields.One2many("commercial.property.unit.image", "unit_id", string="Images")
+    image_1920 = fields.Image(
+        string="Photo",
+        compute="_compute_primary_image",
+        inverse="_inverse_primary_image",
+        store=True,
+    )
     notes = fields.Text(string="Internal Notes")
     public_name = fields.Char(string="Public Name", translate=True)
     public_description = fields.Text(string="Public Description", translate=True)
@@ -222,14 +228,35 @@ class CommercialPropertyUnit(models.Model):
         for unit in self:
             unit.vacancy_days = (today - unit.vacant_since).days if unit.state == "available" and unit.vacant_since else 0
 
+    @api.depends("image_ids.image_1920", "image_ids.sequence")
+    def _compute_primary_image(self):
+        for unit in self:
+            first_image = unit.image_ids.sorted("sequence")[:1]
+            unit.image_1920 = first_image.image_1920 if first_image else False
+
+    def _inverse_primary_image(self):
+        for unit in self:
+            if unit.image_1920:
+                # Update or create first image with the new image data
+                first_image = unit.image_ids.sorted("sequence")[:1]
+                if first_image:
+                    first_image.image_1920 = unit.image_1920
+                else:
+                    # Create new image if none exists
+                    self.env["commercial.property.unit.image"].create({
+                        "unit_id": unit.id,
+                        "image_1920": unit.image_1920,
+                        "sequence": 10,
+                    })
+
     @api.depends(
-        "image_1920", "public_name", "public_description", "public_monthly_rent",
+        "image_ids", "public_name", "public_description", "public_monthly_rent",
         "public_feature_ids", "public_location_hint", "virtual_tour_url",
     )
     def _compute_publication_quality_ok(self):
         for unit in self:
             unit.publication_quality_ok = bool(
-                unit.image_1920
+                unit.image_ids
                 and unit.public_name
                 and unit.public_description
                 and unit.public_monthly_rent > 0
@@ -237,6 +264,21 @@ class CommercialPropertyUnit(models.Model):
                 and unit.public_location_hint
                 and unit.virtual_tour_url
             )
+
+    @api.model
+    def _migrate_images_to_gallery(self):
+        """Migrate existing image_1920 to gallery. Safe to run multiple times."""
+        units_with_image = self.search([('image_1920', '!=', False)])
+        for unit in units_with_image:
+            # Only migrate if no gallery images exist yet
+            if not unit.image_ids:
+                self.env['commercial.property.unit.image'].create({
+                    'unit_id': unit.id,
+                    'image_1920': unit.image_1920,
+                    'sequence': 10,
+                    'name': 'Migrated image',
+                })
+        return True
 
     @api.model
     def _cron_expire_publications(self):
@@ -388,7 +430,11 @@ class CommercialPropertyUnit(models.Model):
             "entrance_description": self.entrance_description or None,
             "location_hint": self.public_location_hint or None,
             "available_from": fields.Date.to_string(self.available_date) if self.available_date else None,
-            "photo_url": "/api/hermes/properties/%s/photo" % self.code if self.image_1920 else None,
+            "photo_url": "/api/hermes/properties/%s/photo" % self.code if self.image_ids else None,
+            "photo_urls": [
+                "/api/hermes/properties/%s/photo?index=%d" % (self.code, idx)
+                for idx, img in enumerate(self.image_ids.sorted("sequence"))
+            ] if self.image_ids else [],
             "virtual_tour_url": self.virtual_tour_url or None,
         }
 

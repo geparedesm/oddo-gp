@@ -1,5 +1,6 @@
 from . import commercial_property
 from . import commercial_property_unit
+from . import commercial_property_unit_image
 from . import commercial_property_lead
 from . import commercial_property_visit
 from . import commercial_property_reservation

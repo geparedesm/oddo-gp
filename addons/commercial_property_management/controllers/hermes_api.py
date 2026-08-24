@@ -129,13 +129,51 @@ class HermesPropertyController(http.Controller):
         if not self._is_authenticated():
             return self._error(401, "unauthorized", "A valid bearer token is required.")
         unit = request.env["commercial.property.unit"].sudo().search_public_units(code=property_code, limit=1)
-        if not unit or not unit.image_1920:
+        if not unit or not unit.image_ids:
             return self._error(404, "not_found", "Public property photo not found.")
+        
+        # Get index from query param, default to 0 (first image)
         try:
-            image_bytes = base64.b64decode(unit.image_1920, validate=True)
+            index = int(params.get('index', 0))
+        except (TypeError, ValueError):
+            return self._error(400, "invalid_parameter", "index must be a valid integer.")
+        
+        images = unit.image_ids.sorted('sequence')
+        if index < 0 or index >= len(images):
+            return self._error(404, "not_found", "Image index out of range.")
+        
+        image = images[index]
+        if not image.image_1920:
+            return self._error(404, "not_found", "Public property photo not found.")
+        
+        try:
+            image_bytes = base64.b64decode(image.image_1920, validate=True)
         except (binascii.Error, ValueError):
             return self._error(404, "not_found", "Public property photo not found.")
+        
         return request.make_response(image_bytes, headers=[("Content-Type", "image/png")])
+
+    @http.route("/api/hermes/properties/<string:property_code>/photos", type="http", auth="none", methods=["GET"], csrf=False)
+    def get_property_photos_metadata(self, property_code, **params):
+        if not self._is_authenticated():
+            return self._error(401, "unauthorized", "A valid bearer token is required.")
+        
+        unit = request.env["commercial.property.unit"].sudo().search_public_units(code=property_code, limit=1)
+        if not unit:
+            return self._error(404, "not_found", "Public property not found.")
+        
+        images = unit.image_ids.sorted('sequence')
+        photos = [
+            {
+                "index": idx,
+                "url": "/api/hermes/properties/%s/photo?index=%d" % (property_code, idx),
+                "name": image.name or None,
+            }
+            for idx, image in enumerate(images)
+        ]
+        
+        return self._json_response({"photos": photos, "count": len(photos)})
+
 
     @http.route("/api/hermes/properties/<string:property_code>/enquiries", type="http", auth="none", methods=["POST"], csrf=False)
     def submit_enquiry(self, property_code, **params):
