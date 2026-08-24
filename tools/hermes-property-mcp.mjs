@@ -1,5 +1,5 @@
 import path from "node:path";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import { fileURLToPath } from "node:url";
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -14,6 +14,47 @@ const ALLOWED_PHOTO_MIME_TYPES = new Set(["image/png", "image/jpeg", "image/webp
 // (?!...), which Groq's tool-schema compiler rejects as "not a valid regex".
 // This lookahead-free pattern keeps basic shape validation working everywhere.
 const SIMPLE_EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const SESSION_ORIGIN_CAPABILITY = "com.nousresearch.hermes/session-origin";
+const SESSION_ORIGIN_METADATA = "com.nousresearch.hermes/session";
+const WHATSAPP_PLATFORMS = new Set(["whatsapp", "whatsapp_cloud"]);
+const WHATSAPP_JID_PATTERN = /^([0-9]{7,15})(?::[0-9]+)?@s\.whatsapp\.net$/i;
+const PHONE_PATTERN = /^\+?[0-9][0-9\s().-]*[0-9]$/;
+
+function normalizeWhatsappSender(value) {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const trimmedValue = value.trim();
+  const jidMatch = WHATSAPP_JID_PATTERN.exec(trimmedValue);
+  if (jidMatch) {
+    return jidMatch[1];
+  }
+  if (!PHONE_PATTERN.test(trimmedValue)) {
+    return null;
+  }
+  const digits = trimmedValue.replace(/\D/g, "");
+  if (digits.length < 7 || digits.length > 15) {
+    return null;
+  }
+  return `${trimmedValue.startsWith("+") ? "+" : ""}${digits}`;
+}
+
+function authenticatedWhatsappSender(extra) {
+  const origin = extra?._meta?.[SESSION_ORIGIN_METADATA];
+  if (!origin || typeof origin !== "object") {
+    return null;
+  }
+  const platform = String(origin.platform || "").trim().toLowerCase();
+  const chatType = String(origin.chat_type || "").trim().toLowerCase();
+  if (!WHATSAPP_PLATFORMS.has(platform) || chatType !== "dm") {
+    return null;
+  }
+  const sender = normalizeWhatsappSender(origin.user_id);
+  if (!sender) {
+    throw new Error("Authenticated WhatsApp sender metadata is invalid.");
+  }
+  return sender;
+}
 
 function optionalNonNegativeNumber(description) {
   return z.number().finite().nonnegative().optional().describe(description);
@@ -43,10 +84,17 @@ function requireConfiguration(value, name) {
 export function createPropertyApiClient({
   apiUrl = process.env.HERMES_PROPERTY_API_URL || DEFAULT_API_URL,
   token = process.env.HERMES_API_TOKEN,
+  mcpChannelToken = process.env.HERMES_MCP_CHANNEL_TOKEN,
   fetchImpl = globalThis.fetch,
 } = {}) {
   const baseUrl = new URL(apiUrl);
   const authorizationToken = requireConfiguration(token, "HERMES_API_TOKEN");
+  const channelToken = requireConfiguration(mcpChannelToken, "HERMES_MCP_CHANNEL_TOKEN");
+  const authorizationDigest = createHash("sha256").update(authorizationToken).digest();
+  const channelDigest = createHash("sha256").update(channelToken).digest();
+  if (timingSafeEqual(authorizationDigest, channelDigest)) {
+    throw new Error("HERMES_API_TOKEN and HERMES_MCP_CHANNEL_TOKEN must use different credentials.");
+  }
 
   async function request(pathname, parameters = {}, requestOptions = {}) {
     const url = new URL(pathname, baseUrl);
@@ -58,7 +106,7 @@ export function createPropertyApiClient({
 
     const response = await fetchImpl(url, {
       method: requestOptions.method || "GET",
-      headers: { Authorization: `Bearer ${authorizationToken}`, "X-Hermes-Channel": "mcp", ...(requestOptions.body ? { "Content-Type": "application/json", "Idempotency-Key": requestOptions.idempotencyKey || randomUUID() } : {}) },
+      headers: { Authorization: `Bearer ${authorizationToken}`, "X-Hermes-Channel": "mcp", "X-Hermes-MCP-Token": channelToken, ...(requestOptions.body ? { "Content-Type": "application/json", "Idempotency-Key": requestOptions.idempotencyKey || randomUUID() } : {}) },
       body: requestOptions.body ? JSON.stringify(requestOptions.body) : undefined,
     });
     const payload = await response.json().catch(() => null);
@@ -73,7 +121,7 @@ export function createPropertyApiClient({
     const url = new URL(pathname, baseUrl);
     const response = await fetchImpl(url, {
       method: "GET",
-      headers: { Authorization: `Bearer ${authorizationToken}`, "X-Hermes-Channel": "mcp" },
+      headers: { Authorization: `Bearer ${authorizationToken}`, "X-Hermes-Channel": "mcp", "X-Hermes-MCP-Token": channelToken },
     });
     if (!response.ok) {
       const payload = await response.json().catch(() => null);
@@ -175,11 +223,12 @@ export function createHermesPropertyServer(clientFactory = createPropertyApiClie
     "submit_property_enquiry",
     {
       title: "Submit a consented commercial-property enquiry",
-      description: "Create a manager-reviewed, non-binding visit enquiry. Never use this without explicit consent; it never reserves a unit or creates a lease. Never ask the prospect for their monthly budget to submit this enquiry — budget is optional and should only be passed if the prospect already volunteered it earlier in the conversation.",
+      description: "Create a manager-reviewed, non-binding visit enquiry. Never use this without explicit consent; it never reserves a unit or creates a lease. Do not ask for a phone when the authenticated WhatsApp session provides the sender identity; otherwise an explicit phone is required. Never ask the prospect for their monthly budget to submit this enquiry — budget is optional and should only be passed if the prospect already volunteered it earlier in the conversation.",
+      _meta: { [SESSION_ORIGIN_CAPABILITY]: true },
       inputSchema: {
         property_code: z.string().trim().min(1).max(128),
         name: z.string().trim().min(1).max(128),
-        phone: z.string().trim().min(3).max(64),
+        phone: z.string().trim().min(3).max(64).optional(),
         email: z.string().trim().regex(SIMPLE_EMAIL_PATTERN).max(254).optional(),
         company_name: z.string().trim().max(256).optional(),
         business_activity: z.string().trim().max(256).optional(),
@@ -191,7 +240,19 @@ export function createHermesPropertyServer(clientFactory = createPropertyApiClie
         channel: z.string().trim().max(128).optional(),
       },
     },
-    async ({ property_code: propertyCode, ...enquiry }) => toolResult(await clientFactory().submitEnquiry(propertyCode, enquiry)),
+    async ({ property_code: propertyCode, ...modelEnquiry }, extra) => {
+      // Unknown/direct-call fields are not trusted model input. Session identity
+      // is accepted only from Hermes' private, tool-opted-in MCP metadata.
+      const { whatsapp_sender: _ignoredSender, ...enquiry } = modelEnquiry;
+      const sender = authenticatedWhatsappSender(extra);
+      if (sender) {
+        delete enquiry.phone;
+        enquiry.whatsapp_sender = sender;
+      } else if (!enquiry.phone?.trim()) {
+        throw new Error("An explicit phone is required when authenticated WhatsApp sender metadata is unavailable.");
+      }
+      return toolResult(await clientFactory().submitEnquiry(propertyCode, enquiry));
+    },
   );
 
   server.registerTool(

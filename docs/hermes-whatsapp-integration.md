@@ -11,6 +11,10 @@ property contract.
 - `HERMES_API_TOKEN` is set in the project `.env`, or
   `commercial_property_management.hermes_api_token` is set in Odoo system
   parameters; do not put the token in a Hermes configuration file or commit it.
+- A separate `HERMES_MCP_CHANNEL_TOKEN` is set in the project `.env`, or
+  `commercial_property_management.hermes_mcp_channel_token` is set in Odoo
+  system parameters. It must be an independent long random value and must not
+  be committed.
 - Hermes Gateway is configured with WhatsApp and running.
 
 ## Install the MCP server
@@ -19,19 +23,23 @@ From the project root, register the local stdio server once:
 
 ```bash
 hermes mcp add odoo-properties --command bash --args /home/gp/odoo-gp/scripts/run-hermes-property-mcp.sh
+hermes config set --force mcp_servers.odoo-properties.session_origin_tools '["submit_property_enquiry"]'
 hermes mcp test odoo-properties
 hermes gateway restart
 ```
 
 The launcher loads the project `.env` only into the MCP subprocess and falls
 back to the Odoo system parameter when needed. Hermes therefore does not need a
-copy of `HERMES_API_TOKEN` in its configuration. After the gateway restarts,
+copy of either credential in its configuration. The MCP client sends the
+separate channel credential with its MCP channel marker; Odoo verifies it in
+constant time before trusting sender identity. After the gateway restarts,
 Hermes makes the tools available to WhatsApp conversations as:
 
 - `mcp_odoo_properties_search_properties`
 - `mcp_odoo_properties_get_available_properties`
 - `mcp_odoo_properties_get_property`
 - `mcp_odoo_properties_get_property_photo`
+- `mcp_odoo_properties_submit_property_enquiry`
 
 ## Conversation behavior
 
@@ -50,6 +58,17 @@ The tools return the API payload unchanged. They do not expose internal names,
 tenants, leases, deposits, or operational notes. An empty result is a valid
 response and should be reported as no matching published available properties.
 Invalid filters are returned as API validation errors.
+
+`submit_property_enquiry` alone advertises the namespaced Hermes
+session-origin capability. Hermes forwards identity only when that remote
+opt-in is intersected with the exact local `session_origin_tools` allowlist
+configured above; either grant missing is deny-by-default. It then supplies the
+authenticated platform, chat type and sender ID as private MCP request metadata,
+never as model-visible arguments. The server derives a phone only for WhatsApp
+or WhatsApp Cloud DMs;
+other channels still require an explicit `phone`, and model-provided sender
+fields are ignored. Baileys phone JIDs and WhatsApp Cloud sender IDs are both
+normalized before Odoo persists the enquiry.
 
 When `get_property` returns a unit with a `photo_url`, the MCP server
 downloads the photo from the authenticated binary route

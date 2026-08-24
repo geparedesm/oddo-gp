@@ -1,5 +1,23 @@
+import re
+
 from odoo import _, api, fields, models
 from odoo.exceptions import ValidationError
+
+
+WHATSAPP_SENDER_PATTERN = re.compile(r"^\+?[0-9][0-9\s().-]*[0-9]$")
+_WHATSAPP_SENDER_ERASURE_CONTEXT = object()
+
+
+def normalize_whatsapp_sender(value):
+    if not isinstance(value, str):
+        return False
+    value = value.strip()
+    if not WHATSAPP_SENDER_PATTERN.fullmatch(value):
+        return False
+    digits = re.sub(r"\D", "", value)
+    if not 7 <= len(digits) <= 15:
+        return False
+    return ("+" if value.startswith("+") else "") + digits
 
 
 class CommercialPropertyLead(models.Model):
@@ -10,6 +28,13 @@ class CommercialPropertyLead(models.Model):
 
     name = fields.Char(string="Contact Name", required=True, tracking=True)
     phone = fields.Char(required=True, tracking=True)
+    whatsapp_sender = fields.Char(
+        string="WhatsApp Sender Number",
+        readonly=True,
+        copy=False,
+        groups="commercial_property_management.group_property_manager",
+        help="Authenticated sender number received through the WhatsApp integration.",
+    )
     email = fields.Char(tracking=True)
     company_name = fields.Char(tracking=True)
     business_activity = fields.Char()
@@ -87,6 +112,20 @@ class CommercialPropertyLead(models.Model):
             if vals.get("state", "new") != "new":
                 raise ValidationError(_("New enquiries must start in the New state."))
             vals.setdefault("assigned_user_id", manager.id)
+            if vals.get("whatsapp_sender"):
+                if vals.get("source", "manual") != "whatsapp":
+                    raise ValidationError(
+                        _("WhatsApp sender identity requires a WhatsApp enquiry source.")
+                    )
+                normalized_sender = normalize_whatsapp_sender(
+                    vals["whatsapp_sender"]
+                )
+                if not normalized_sender:
+                    raise ValidationError(
+                        _("Enter a valid WhatsApp sender phone number.")
+                    )
+                vals["whatsapp_sender"] = normalized_sender
+                vals["phone"] = normalized_sender
             if vals.get("source") == "whatsapp":
                 vals.setdefault("consent_policy_version", self.env["ir.config_parameter"].sudo().get_param("commercial_property_management.whatsapp_consent_policy_version", "EC-2026-1"))
                 vals.setdefault("consent_purpose", _("Commercial property enquiry and visit coordination"))
@@ -104,6 +143,22 @@ class CommercialPropertyLead(models.Model):
         return leads
 
     def write(self, vals):
+        if "whatsapp_sender" in vals:
+            erasure_is_internal = (
+                not vals["whatsapp_sender"]
+                and self.env.context.get("_whatsapp_sender_erasure")
+                is _WHATSAPP_SENDER_ERASURE_CONTEXT
+            )
+            if not erasure_is_internal:
+                raise ValidationError(
+                    _("WhatsApp sender identity cannot be changed after creation.")
+                )
+        if vals.get("source") == "manual" and any(
+            lead.whatsapp_sender for lead in self
+        ):
+            raise ValidationError(
+                _("WhatsApp sender identity requires a WhatsApp enquiry source.")
+            )
         if "state" in vals:
             self._check_transition(vals["state"])
             if vals["state"] == "rejected":
@@ -115,7 +170,9 @@ class CommercialPropertyLead(models.Model):
     def _cron_anonymize_expired_personal_data(self):
         leads = self.sudo().search([("anonymized_at", "=", False), ("retention_deadline", "!=", False), ("retention_deadline", "<=", fields.Datetime.now())])
         for lead in leads:
-            lead.write({"name": _("Anonymized prospect"), "phone": False, "email": False, "company_name": False, "business_activity": False, "desired_start_date": False, "message": False, "visit_requested_at": False, "public_source_hash": False, "anonymized_at": fields.Datetime.now()})
+            lead.with_context(
+                _whatsapp_sender_erasure=_WHATSAPP_SENDER_ERASURE_CONTEXT
+            ).write({"name": _("Anonymized prospect"), "phone": False, "whatsapp_sender": False, "email": False, "company_name": False, "business_activity": False, "desired_start_date": False, "message": False, "visit_requested_at": False, "public_source_hash": False, "anonymized_at": fields.Datetime.now()})
 
     @api.model
     def _cron_alert_overdue_public_enquiries(self):

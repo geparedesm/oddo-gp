@@ -8,6 +8,15 @@ import {
   REFRESH_BEFORE_ANSWERING_NOTICE,
 } from "../tools/hermes-property-mcp.mjs";
 
+const TEST_MCP_CHANNEL_TOKEN = "test-mcp-channel-token";
+
+function createTestPropertyApiClient(options) {
+  return createPropertyApiClient({
+    mcpChannelToken: TEST_MCP_CHANNEL_TOKEN,
+    ...options,
+  });
+}
+
 function jsonResponse(status, payload) {
   return new Response(JSON.stringify(payload), {
     status,
@@ -29,14 +38,37 @@ function binaryResponse(bytes, { contentType = "image/png", contentLength } = {}
   });
 }
 
+test("the MCP API client requires a separate channel credential", () => {
+  assert.throws(
+    () => createPropertyApiClient({
+      apiUrl: "https://odoo.example.test",
+      token: "test-token",
+    }),
+    /HERMES_MCP_CHANNEL_TOKEN/,
+  );
+});
+
+test("the MCP API client rejects a channel credential equal to the bearer token", () => {
+  assert.throws(
+    () => createPropertyApiClient({
+      apiUrl: "https://odoo.example.test",
+      token: "shared-test-token",
+      mcpChannelToken: "shared-test-token",
+    }),
+    /must use different credentials/,
+  );
+});
+
 test("a conversational budget and area request becomes public API filters", async () => {
   let receivedUrl;
-  const client = createPropertyApiClient({
+  const client = createTestPropertyApiClient({
     apiUrl: "https://odoo.example.test",
     token: "test-token",
     fetchImpl: async (url, options) => {
       receivedUrl = url;
       assert.equal(options.headers.Authorization, "Bearer test-token");
+      assert.equal(options.headers["X-Hermes-Channel"], "mcp");
+      assert.equal(options.headers["X-Hermes-MCP-Token"], TEST_MCP_CHANNEL_TOKEN);
       return jsonResponse(200, { properties: [{ code: "CP-001", name: "Central Tower" }] });
     },
   });
@@ -53,7 +85,7 @@ test("a conversational budget and area request becomes public API filters", asyn
 
 test("a conversational zone request becomes a public API zone filter", async () => {
   let receivedUrl;
-  const client = createPropertyApiClient({
+  const client = createTestPropertyApiClient({
     apiUrl: "https://odoo.example.test",
     token: "test-token",
     fetchImpl: async (url) => {
@@ -69,7 +101,7 @@ test("a conversational zone request becomes a public API zone filter", async () 
 });
 
 test("an empty conversational search returns an empty public result", async () => {
-  const client = createPropertyApiClient({
+  const client = createTestPropertyApiClient({
     apiUrl: "https://odoo.example.test",
     token: "test-token",
     fetchImpl: async () => jsonResponse(200, { properties: [] }),
@@ -79,7 +111,7 @@ test("an empty conversational search returns an empty public result", async () =
 });
 
 test("an invalid conversational request surfaces the public API validation error", async () => {
-  const client = createPropertyApiClient({
+  const client = createTestPropertyApiClient({
     apiUrl: "https://odoo.example.test",
     token: "test-token",
     fetchImpl: async () => jsonResponse(400, {
@@ -95,7 +127,7 @@ test("an invalid conversational request surfaces the public API validation error
 
 test("a property code is encoded before requesting public details", async () => {
   let receivedUrl;
-  const client = createPropertyApiClient({
+  const client = createTestPropertyApiClient({
     apiUrl: "https://odoo.example.test",
     token: "test-token",
     fetchImpl: async (url) => {
@@ -112,7 +144,7 @@ test("a property code is encoded before requesting public details", async () => 
 test("a consented enquiry is posted to the encoded public unit URL", async () => {
   let receivedUrl;
   let receivedOptions;
-  const client = createPropertyApiClient({
+  const client = createTestPropertyApiClient({
     apiUrl: "https://odoo.example.test", token: "test-token",
     fetchImpl: async (url, options) => {
       receivedUrl = url;
@@ -125,15 +157,166 @@ test("a consented enquiry is posted to the encoded public unit URL", async () =>
   assert.equal(receivedUrl.pathname, "/api/hermes/properties/CP%20001/enquiries");
   assert.equal(receivedOptions.method, "POST");
   assert.equal(receivedOptions.headers["Content-Type"], "application/json");
+  assert.equal(receivedOptions.headers["X-Hermes-Channel"], "mcp");
+  assert.equal(receivedOptions.headers["X-Hermes-MCP-Token"], TEST_MCP_CHANNEL_TOKEN);
   assert.deepEqual(JSON.parse(receivedOptions.body), enquiry);
   assert.equal(JSON.parse(receivedOptions.body).budget, 1200);
+});
+
+function sessionOriginExtra({ platform = "whatsapp", chatType = "dm", userId } = {}) {
+  return {
+    _meta: {
+      "com.nousresearch.hermes/session": {
+        platform,
+        chat_type: chatType,
+        user_id: userId,
+      },
+    },
+  };
+}
+
+test("only the enquiry tool opts in to private session-origin metadata", () => {
+  const server = createHermesPropertyServer(() => ({}));
+  const enquiryTool = registeredTool(server, "submit_property_enquiry");
+
+  assert.equal(enquiryTool._meta["com.nousresearch.hermes/session-origin"], true);
+  assert.equal(enquiryTool.inputSchema.shape.phone.isOptional(), true);
+  assert.equal(enquiryTool.inputSchema.shape.whatsapp_sender, undefined);
+  assert.equal(registeredTool(server, "search_properties")._meta, undefined);
+});
+
+test("WhatsApp Cloud metadata supplies a normalized sender without model-visible phone", async () => {
+  let receivedBody;
+  const server = createHermesPropertyServer(() => ({
+    submitEnquiry(_propertyCode, enquiry) {
+      receivedBody = enquiry;
+      return { message: "accepted" };
+    },
+  }));
+
+  await registeredTool(server, "submit_property_enquiry").handler(
+    { property_code: "CP-001", name: "Ana", consent: true },
+    sessionOriginExtra({ platform: "whatsapp_cloud", userId: "593999000111" }),
+  );
+
+  assert.equal(receivedBody.whatsapp_sender, "593999000111");
+  assert.equal(Object.hasOwn(receivedBody, "phone"), false);
+});
+
+test("Baileys metadata supplies a normalized sender from a device JID", async () => {
+  let receivedBody;
+  const server = createHermesPropertyServer(() => ({
+    submitEnquiry(_propertyCode, enquiry) {
+      receivedBody = enquiry;
+      return { message: "accepted" };
+    },
+  }));
+
+  await registeredTool(server, "submit_property_enquiry").handler(
+    { property_code: "CP-001", name: "Ana", consent: true },
+    sessionOriginExtra({ userId: "593999000222:17@s.whatsapp.net" }),
+  );
+
+  assert.equal(receivedBody.whatsapp_sender, "593999000222");
+});
+
+test("trusted WhatsApp metadata overrides spoofed sender and phone arguments", async () => {
+  let receivedBody;
+  const server = createHermesPropertyServer(() => ({
+    submitEnquiry(_propertyCode, enquiry) {
+      receivedBody = enquiry;
+      return { message: "accepted" };
+    },
+  }));
+
+  await registeredTool(server, "submit_property_enquiry").handler(
+    {
+      property_code: "CP-001",
+      name: "Ana",
+      phone: "+12025550199",
+      whatsapp_sender: "+12025550188",
+      consent: true,
+    },
+    sessionOriginExtra({ userId: "593999000333@s.whatsapp.net" }),
+  );
+
+  assert.equal(receivedBody.whatsapp_sender, "593999000333");
+  assert.equal(Object.hasOwn(receivedBody, "phone"), false);
+});
+
+test("invalid authenticated WhatsApp identity cannot fall back to a model phone", async () => {
+  const server = createHermesPropertyServer(() => ({
+    submitEnquiry() {
+      assert.fail("invalid authenticated identity must not reach Odoo");
+    },
+  }));
+
+  await assert.rejects(
+    registeredTool(server, "submit_property_enquiry").handler(
+      {
+        property_code: "CP-001",
+        name: "Ana",
+        phone: "+12025550199",
+        consent: true,
+      },
+      sessionOriginExtra({ userId: "not-a-whatsapp-identity" }),
+    ),
+    /authenticated WhatsApp sender metadata is invalid/i,
+  );
+});
+
+test("non-WhatsApp and non-DM sessions cannot spoof an automatic sender", async () => {
+  for (const extra of [
+    sessionOriginExtra({ platform: "web", userId: "593999000444" }),
+    sessionOriginExtra({ platform: "email", userId: "593999000444" }),
+    sessionOriginExtra({ platform: "local", userId: "593999000444" }),
+    sessionOriginExtra({ chatType: "group", userId: "593999000444" }),
+  ]) {
+    const server = createHermesPropertyServer(() => ({
+      submitEnquiry() {
+        assert.fail("an untrusted sender must not reach Odoo");
+      },
+    }));
+    await assert.rejects(
+      registeredTool(server, "submit_property_enquiry").handler(
+        {
+          property_code: "CP-001",
+          name: "Ana",
+          whatsapp_sender: "593999000444",
+          consent: true,
+        },
+        extra,
+      ),
+      /explicit phone/i,
+    );
+  }
+});
+
+test("an explicit phone remains the fallback without trusted WhatsApp metadata", async () => {
+  let receivedBody;
+  const server = createHermesPropertyServer(() => ({
+    submitEnquiry(_propertyCode, enquiry) {
+      receivedBody = enquiry;
+      return { message: "accepted" };
+    },
+  }));
+
+  await registeredTool(server, "submit_property_enquiry").handler({
+    property_code: "CP-001",
+    name: "Ana",
+    phone: "+12025550199",
+    consent: true,
+  });
+
+  assert.equal(receivedBody.phone, "+12025550199");
+  assert.equal(Object.hasOwn(receivedBody, "whatsapp_sender"), false);
 });
 
 test("a property photo is fetched from the encoded authenticated binary route", async () => {
   let receivedUrl;
   let receivedOptions;
   const bytes = new Uint8Array([1, 2, 3, 4]);
-  const client = createPropertyApiClient({
+  const client = createTestPropertyApiClient({
     apiUrl: "https://odoo.example.test",
     token: "test-token",
     fetchImpl: async (url, options) => {
@@ -154,7 +337,7 @@ test("a property photo is fetched from the encoded authenticated binary route", 
 });
 
 test("an unauthorized photo request surfaces the public API error", async () => {
-  const client = createPropertyApiClient({
+  const client = createTestPropertyApiClient({
     apiUrl: "https://odoo.example.test",
     token: "test-token",
     fetchImpl: async () => jsonResponse(401, { error: { code: "unauthorized", message: "A valid bearer token is required." } }),
@@ -167,7 +350,7 @@ test("an unauthorized photo request surfaces the public API error", async () => 
 });
 
 test("a photo response with a disallowed MIME type is rejected", async () => {
-  const client = createPropertyApiClient({
+  const client = createTestPropertyApiClient({
     apiUrl: "https://odoo.example.test",
     token: "test-token",
     fetchImpl: async () => binaryResponse(new Uint8Array([1, 2, 3]), { contentType: "application/pdf" }),
@@ -177,7 +360,7 @@ test("a photo response with a disallowed MIME type is rejected", async () => {
 });
 
 test("a photo response over the size limit is rejected using the Content-Length header", async () => {
-  const client = createPropertyApiClient({
+  const client = createTestPropertyApiClient({
     apiUrl: "https://odoo.example.test",
     token: "test-token",
     fetchImpl: async () => binaryResponse(new Uint8Array([1, 2, 3]), { contentLength: 11 * 1024 * 1024 }),
@@ -188,7 +371,7 @@ test("a photo response over the size limit is rejected using the Content-Length 
 
 test("a photo response over the size limit is rejected using the actual byte count", async () => {
   const oversizedBytes = new Uint8Array(10 * 1024 * 1024 + 1);
-  const client = createPropertyApiClient({
+  const client = createTestPropertyApiClient({
     apiUrl: "https://odoo.example.test",
     token: "test-token",
     fetchImpl: async () => binaryResponse(oversizedBytes),
@@ -200,7 +383,7 @@ test("a photo response over the size limit is rejected using the actual byte cou
 test("get_property returns an ImageContent block alongside the JSON text when a photo is available", async () => {
   const bytes = new Uint8Array([9, 9, 9]);
   const property = { code: "CP-001", photo_url: "/api/hermes/properties/CP-001/photo" };
-  const client = createPropertyApiClient({
+  const client = createTestPropertyApiClient({
     apiUrl: "https://odoo.example.test",
     token: "test-token",
     fetchImpl: async (url) => {
@@ -222,7 +405,7 @@ test("get_property returns an ImageContent block alongside the JSON text when a 
 test("get_property omits the ImageContent block and does not fetch a photo when photo_url is null", async () => {
   const property = { code: "CP-002", photo_url: null };
   let photoRequested = false;
-  const client = createPropertyApiClient({
+  const client = createTestPropertyApiClient({
     apiUrl: "https://odoo.example.test",
     token: "test-token",
     fetchImpl: async (url) => {
@@ -242,7 +425,7 @@ test("get_property omits the ImageContent block and does not fetch a photo when 
 
 test("search_properties and get_property descriptions require refreshing current data before answering", () => {
   const server = createHermesPropertyServer(() =>
-    createPropertyApiClient({ apiUrl: "https://odoo.example.test", token: "test-token" }),
+    createTestPropertyApiClient({ apiUrl: "https://odoo.example.test", token: "test-token" }),
   );
 
   assert.match(REFRESH_BEFORE_ANSWERING_NOTICE, /never infer/i);
@@ -253,7 +436,7 @@ test("search_properties and get_property descriptions require refreshing current
 
 test("get_property_photo is described as a mandatory re-check before answering photo questions", () => {
   const server = createHermesPropertyServer(() =>
-    createPropertyApiClient({ apiUrl: "https://odoo.example.test", token: "test-token" }),
+    createTestPropertyApiClient({ apiUrl: "https://odoo.example.test", token: "test-token" }),
   );
 
   const description = registeredTool(server, "get_property_photo").description;
@@ -268,7 +451,7 @@ test("get_property_photo re-fetches the current record and attaches the image wh
   const bytes = new Uint8Array([7, 7, 7]);
   const property = { code: "CU2026-0003", photo_url: "/api/hermes/properties/CU2026-0003/photo" };
   let getPropertyCalls = 0;
-  const client = createPropertyApiClient({
+  const client = createTestPropertyApiClient({
     apiUrl: "https://odoo.example.test",
     token: "test-token",
     fetchImpl: async (url) => {
@@ -293,7 +476,7 @@ test("get_property_photo re-fetches the current record and attaches the image wh
 test("get_property_photo does not invent a photo when the current record has none", async () => {
   const property = { code: "CU2026-0003", photo_url: null };
   let photoRequested = false;
-  const client = createPropertyApiClient({
+  const client = createTestPropertyApiClient({
     apiUrl: "https://odoo.example.test",
     token: "test-token",
     fetchImpl: async (url) => {
@@ -314,7 +497,7 @@ test("get_property_photo does not invent a photo when the current record has non
 
 test("a zone-only conversational search omits budget and size filters", async () => {
   let receivedUrl;
-  const client = createPropertyApiClient({
+  const client = createTestPropertyApiClient({
     apiUrl: "https://odoo.example.test",
     token: "test-token",
     fetchImpl: async (url) => {
@@ -334,7 +517,7 @@ test("a zone-only conversational search omits budget and size filters", async ()
 
 test("search_properties, get_available_properties and submit_property_enquiry never ask for budget or size upfront", () => {
   const server = createHermesPropertyServer(() =>
-    createPropertyApiClient({ apiUrl: "https://odoo.example.test", token: "test-token" }),
+    createTestPropertyApiClient({ apiUrl: "https://odoo.example.test", token: "test-token" }),
   );
 
   const searchDescription = registeredTool(server, "search_properties").description;

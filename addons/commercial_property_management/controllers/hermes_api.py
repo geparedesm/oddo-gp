@@ -10,10 +10,16 @@ import json
 from odoo import fields, http
 from odoo.http import request
 
+from ..models.commercial_property_lead import normalize_whatsapp_sender
+
 
 class HermesPropertyController(http.Controller):
     _TOKEN_ENVIRONMENT_VARIABLE = "HERMES_API_TOKEN"
     _TOKEN_PARAMETER = "commercial_property_management.hermes_api_token"
+    _MCP_TOKEN_ENVIRONMENT_VARIABLE = "HERMES_MCP_CHANNEL_TOKEN"
+    _MCP_TOKEN_PARAMETER = (
+        "commercial_property_management.hermes_mcp_channel_token"
+    )
     _MAX_LIMIT = 50
     _MAX_ENQUIRY_BYTES = 8192
 
@@ -37,6 +43,27 @@ class HermesPropertyController(http.Controller):
 
     def _is_intake_enabled(self):
         return request.env["ir.config_parameter"].sudo().get_param("commercial_property_management.whatsapp_intake_enabled") == "True"
+
+    def _is_mcp_request(self):
+        if request.httprequest.headers.get("X-Hermes-Channel") != "mcp":
+            return False
+        expected_token = request.env["ir.config_parameter"].sudo().get_param(
+            self._MCP_TOKEN_PARAMETER
+        ) or os.environ.get(self._MCP_TOKEN_ENVIRONMENT_VARIABLE)
+        api_token = request.env["ir.config_parameter"].sudo().get_param(
+            self._TOKEN_PARAMETER
+        ) or os.environ.get(self._TOKEN_ENVIRONMENT_VARIABLE)
+        provided_token = request.httprequest.headers.get(
+            "X-Hermes-MCP-Token", ""
+        )
+        if (
+            not expected_token
+            or not api_token
+            or not provided_token
+            or hmac.compare_digest(expected_token, api_token)
+        ):
+            return False
+        return hmac.compare_digest(provided_token, expected_token)
 
     def _request_hash(self, value):
         token = request.env["ir.config_parameter"].sudo().get_param(self._TOKEN_PARAMETER) or os.environ.get(self._TOKEN_ENVIRONMENT_VARIABLE, "")
@@ -124,21 +151,31 @@ class HermesPropertyController(http.Controller):
             payload = None
         if not isinstance(payload, dict):
             return self._error(400, "invalid_parameter", "A JSON object is required.")
-        allowed = {"name", "phone", "email", "company_name", "business_activity", "desired_start_date", "message", "visit_requested", "consent", "website", "channel", "budget"}
+        allowed = {"name", "phone", "whatsapp_sender", "email", "company_name", "business_activity", "desired_start_date", "message", "visit_requested", "consent", "website", "channel", "budget"}
         text_fields = allowed - {"consent", "visit_requested", "desired_start_date", "channel", "budget"}
+        normalized_sender = normalize_whatsapp_sender(payload.get("whatsapp_sender"))
         if (
             payload.get("consent") is not True
             or not isinstance(payload.get("name"), str)
             or not payload["name"].strip()
-            or not isinstance(payload.get("phone"), str)
-            or not payload["phone"].strip()
+            or (
+                not (
+                    isinstance(payload.get("phone"), str)
+                    and payload["phone"].strip()
+                )
+                and not normalized_sender
+            )
+            or (
+                "whatsapp_sender" in payload
+                and (not self._is_mcp_request() or not normalized_sender)
+            )
             or set(payload) - allowed
             or any(not isinstance(payload[field], str) for field in text_fields if field in payload)
             or ("visit_requested" in payload and not isinstance(payload["visit_requested"], bool))
             or ("website" in payload and not isinstance(payload["website"], str))
             or ("channel" in payload and not isinstance(payload["channel"], str))
         ):
-            return self._error(400, "invalid_parameter", "Name, phone and explicit consent are required.")
+            return self._error(400, "invalid_parameter", "Name, a verified contact number and explicit consent are required.")
         try:
             budget = self._parse_non_negative_number(payload.get("budget"), "budget")
         except ValueError:
@@ -146,8 +183,11 @@ class HermesPropertyController(http.Controller):
         if payload.get("website"):
             self.env["commercial.property.integration.alert"].raise_alert(request.env, "api", "api-abuse-honeypot", "Public enquiry abuse detected", "warning", "Honeypot field was populated.")
             return self._json_response({"message": "Your enquiry was received for manager review."}, status=202)
-        if any(len(payload.get(field, "")) > maximum for field, maximum in {"name": 128, "phone": 64, "email": 254, "company_name": 256, "business_activity": 256, "message": 2000, "channel": 128}.items()):
+        if any(len(payload.get(field, "")) > maximum for field, maximum in {"name": 128, "phone": 64, "whatsapp_sender": 64, "email": 254, "company_name": 256, "business_activity": 256, "message": 2000, "channel": 128}.items()):
             return self._error(400, "invalid_parameter", "One or more enquiry fields are too long.")
+        if normalized_sender:
+            payload["whatsapp_sender"] = normalized_sender
+            payload["phone"] = normalized_sender
         if payload.get("desired_start_date"):
             try:
                 fields.Date.to_date(payload["desired_start_date"])
