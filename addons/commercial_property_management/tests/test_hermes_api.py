@@ -720,7 +720,7 @@ class TestHermesEnquiryIdentity(HttpCase):
         )
         
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.headers.get("Content-Type"), "image/png")
+        self.assertEqual(response.headers.get("Content-Type"), "image/gif")
         self.assertEqual(response.content, base64.b64decode(dummy_image))
         self.__class__._executed_http_cases.add(self._testMethodName)
 
@@ -812,6 +812,61 @@ class TestHermesEnquiryIdentity(HttpCase):
         self.assertEqual(response.status_code, 404)
         data = json.loads(response.text)
         self.assertEqual(data["error"]["code"], "not_found")
+        self.__class__._executed_http_cases.add(self._testMethodName)
+
+    def test_get_property_photo_content_type_matches_png_format(self):
+        """A PNG-encoded gallery image is served with Content-Type: image/png"""
+        png_image = base64.b64encode(
+            base64.b64decode(
+                "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4"
+                "nGP8z8DAwMDAxMDAwMDAAAANHQEDasKb6QAAAABJRU5ErkJggg=="
+            )
+        )
+
+        self.env["commercial.property.unit.image"].create(
+            {
+                "unit_id": self.unit.id,
+                "image_1920": png_image,
+                "sequence": 10,
+            }
+        )
+        self.env.cr.commit()
+        self._signal_http_worker_cache_invalidation()
+
+        response = self.url_open(
+            "/api/hermes/properties/%s/photo" % self.unit.code,
+            headers={"Authorization": "Bearer %s" % self.token},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.headers.get("Content-Type"), "image/png")
+        self.__class__._executed_http_cases.add(self._testMethodName)
+
+    def test_get_property_photo_content_type_matches_jpeg_format(self):
+        """A JPEG-encoded gallery image is served with Content-Type: image/jpeg"""
+        jpeg_image = base64.b64encode(
+            base64.b64decode(
+                "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAACAAIDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwDxyiiiv3E8w//Z"
+            )
+        )
+
+        self.env["commercial.property.unit.image"].create(
+            {
+                "unit_id": self.unit.id,
+                "image_1920": jpeg_image,
+                "sequence": 10,
+            }
+        )
+        self.env.cr.commit()
+        self._signal_http_worker_cache_invalidation()
+
+        response = self.url_open(
+            "/api/hermes/properties/%s/photo" % self.unit.code,
+            headers={"Authorization": "Bearer %s" % self.token},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.headers.get("Content-Type"), "image/jpeg")
         self.__class__._executed_http_cases.add(self._testMethodName)
 
     def test_get_property_photos_metadata_returns_array(self):

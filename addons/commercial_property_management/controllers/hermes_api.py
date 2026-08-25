@@ -9,6 +9,7 @@ import json
 
 from odoo import fields, http
 from odoo.http import request
+from odoo.tools.mimetypes import guess_mimetype
 
 from ..models.commercial_property_lead import normalize_whatsapp_sender
 
@@ -151,7 +152,8 @@ class HermesPropertyController(http.Controller):
         except (binascii.Error, ValueError):
             return self._error(404, "not_found", "Public property photo not found.")
         
-        return request.make_response(image_bytes, headers=[("Content-Type", "image/png")])
+        mimetype = guess_mimetype(image_bytes, default="image/png")
+        return request.make_response(image_bytes, headers=[("Content-Type", mimetype)])
 
     @http.route("/api/hermes/properties/<string:property_code>/photos", type="http", auth="none", methods=["GET"], csrf=False)
     def get_property_photos_metadata(self, property_code, **params):

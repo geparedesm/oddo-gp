@@ -47,6 +47,7 @@
         "views/res_config_settings_views.xml",
         "views/commercial_property_menus.xml",
         "data/commercial_property_unit_migration.xml",
+        "data/commercial_property_unit_image_compression.xml",
     ],
     "application": True,
     "installable": True,

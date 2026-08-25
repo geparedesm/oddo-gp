@@ -1,4 +1,8 @@
 import base64
+import io
+
+from PIL import Image as PILImage
+
 from odoo import fields
 from odoo.tests.common import TransactionCase
 
@@ -292,3 +296,159 @@ class TestCommercialPropertyUnitImage(TransactionCase):
         # Should still have only one image (the existing one)
         self.assertEqual(len(unit5.image_ids), 1)
         self.assertEqual(unit5.image_ids[0].id, img.id)
+
+    @staticmethod
+    def _make_large_png(size=(1920, 1920)):
+        """Build a synthetic PNG large enough to trigger compression
+        (random-ish content so PNG's own compression can't shrink it much
+        on its own, unlike solid-color images)."""
+        import random
+
+        random.seed(42)
+        img = PILImage.new("RGB", size)
+        pixels = img.load()
+        for x in range(0, size[0], 4):
+            for y in range(0, size[1], 4):
+                color = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
+                for dx in range(4):
+                    for dy in range(4):
+                        if x + dx < size[0] and y + dy < size[1]:
+                            pixels[x + dx, y + dy] = color
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        return base64.b64encode(buf.getvalue())
+
+    def test_create_large_image_is_compressed(self):
+        """Creating a gallery image with a large synthetic PNG results in a
+        smaller stored byte size."""
+        large_image = self._make_large_png()
+        original_size = len(base64.b64decode(large_image))
+        # Sanity check the fixture is actually above the compression
+        # threshold so the test is meaningful.
+        self.assertGreater(
+            original_size,
+            self.env["commercial.property.unit.image"]._COMPRESSION_SIZE_THRESHOLD,
+        )
+
+        image_record = self.env["commercial.property.unit.image"].with_user(self.manager).create(
+            {
+                "unit_id": self.unit.id,
+                "image_1920": large_image,
+                "sequence": 10,
+                "name": "Large Photo",
+            }
+        )
+
+        stored_size = len(base64.b64decode(image_record.image_1920))
+        self.assertLess(stored_size, original_size)
+        # Verify the stored bytes are still a valid, decodable image.
+        PILImage.open(io.BytesIO(base64.b64decode(image_record.image_1920))).verify()
+
+    def test_write_large_image_is_compressed(self):
+        """Writing a large synthetic PNG onto an existing record also
+        triggers compression."""
+        dummy_image = base64.b64encode(b"GIF89a\x01\x00\x01\x00\x00\x00\x00\x21\xf9\x04\x01\n\x00\x01\x00,\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02D\x01\x00;")
+        image_record = self.env["commercial.property.unit.image"].with_user(self.manager).create(
+            {
+                "unit_id": self.unit.id,
+                "image_1920": dummy_image,
+                "sequence": 10,
+                "name": "Placeholder",
+            }
+        )
+
+        large_image = self._make_large_png()
+        original_size = len(base64.b64decode(large_image))
+        image_record.with_user(self.manager).write({"image_1920": large_image})
+
+        stored_size = len(base64.b64decode(image_record.image_1920))
+        self.assertLess(stored_size, original_size)
+
+    def test_small_image_not_altered(self):
+        """Small images (like the GIF test fixtures) are left untouched by
+        the compression logic."""
+        dummy_image = base64.b64encode(b"GIF89a\x01\x00\x01\x00\x00\x00\x00\x21\xf9\x04\x01\n\x00\x01\x00,\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02D\x01\x00;")
+        image_record = self.env["commercial.property.unit.image"].with_user(self.manager).create(
+            {
+                "unit_id": self.unit.id,
+                "image_1920": dummy_image,
+                "sequence": 10,
+                "name": "Small Photo",
+            }
+        )
+        self.assertEqual(image_record.image_1920, dummy_image)
+
+    def test_compress_existing_gallery_images_batch(self):
+        """The batch method reduces the size of large existing images."""
+        large_image = self._make_large_png()
+        original_size = len(base64.b64decode(large_image))
+
+        image_record = self.env["commercial.property.unit.image"].with_user(self.manager).create(
+            {
+                "unit_id": self.unit.id,
+                "image_1920": large_image,
+                "sequence": 10,
+                "name": "Batch Photo",
+            }
+        )
+        # It was already compressed on create(); this confirms the fixture
+        # itself is meaningful and gives us a size to compare the batch
+        # result against (should not grow).
+        after_create_size = len(base64.b64decode(image_record.image_1920))
+        self.assertLess(after_create_size, original_size)
+
+        result = self.env["commercial.property.unit.image"]._compress_existing_gallery_images()
+        self.assertIsInstance(result, int)
+
+        image_record.invalidate_cache()
+        after_batch_size = len(base64.b64decode(image_record.image_1920))
+        self.assertLessEqual(after_batch_size, after_create_size)
+        PILImage.open(io.BytesIO(base64.b64decode(image_record.image_1920))).verify()
+
+    def test_compress_existing_gallery_images_idempotent(self):
+        """Running the batch twice does not change the size the second
+        time (idempotent)."""
+        large_image = self._make_large_png()
+        image_record = self.env["commercial.property.unit.image"].with_user(self.manager).create(
+            {
+                "unit_id": self.unit.id,
+                "image_1920": large_image,
+                "sequence": 10,
+                "name": "Idempotent Photo",
+            }
+        )
+
+        self.env["commercial.property.unit.image"]._compress_existing_gallery_images()
+        image_record.invalidate_cache()
+        first_pass_size = len(base64.b64decode(image_record.image_1920))
+
+        self.env["commercial.property.unit.image"]._compress_existing_gallery_images()
+        image_record.invalidate_cache()
+        second_pass_size = len(base64.b64decode(image_record.image_1920))
+
+        self.assertEqual(first_pass_size, second_pass_size)
+
+    def test_compress_existing_gallery_images_cu2026_0009(self):
+        """Real-data regression: unit CU2026-0009's gallery images are
+        reduced in size by the batch and remain decodable with PIL."""
+        unit = self.env["commercial.property.unit"].search([("code", "=", "CU2026-0009")], limit=1)
+        if not unit:
+            self.skipTest("Unit CU2026-0009 not present in this database")
+
+        before_sizes = {
+            image.id: len(base64.b64decode(image.image_1920))
+            for image in unit.image_ids
+            if image.image_1920
+        }
+        self.assertTrue(before_sizes, "Expected CU2026-0009 to have gallery images with content")
+
+        self.env["commercial.property.unit.image"]._compress_existing_gallery_images()
+        unit.invalidate_cache()
+
+        for image in unit.image_ids:
+            if image.id not in before_sizes:
+                continue
+            after_size = len(base64.b64decode(image.image_1920))
+            self.assertLessEqual(after_size, before_sizes[image.id])
+            # Must still be a valid, decodable image.
+            PILImage.open(io.BytesIO(base64.b64decode(image.image_1920))).verify()

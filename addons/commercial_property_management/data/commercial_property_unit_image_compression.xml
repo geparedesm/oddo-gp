@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <function model="commercial.property.unit.image" name="_compress_existing_gallery_images"/>
+</odoo>
