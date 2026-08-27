@@ -10,7 +10,6 @@
                 <field name="property_type"/>
                 <field name="city"/>
                 <field name="area"/>
-                <field name="monthly_rent" widget="monetary"/>
                 <field name="currency_id" invisible="1"/>
                 <field name="available_date"/>
                 <field name="state" widget="badge"/>
@@ -39,8 +38,12 @@
                             <field name="state"/>
                             <field name="property_type"/>
                             <field name="area"/>
-                            <field name="monthly_rent" widget="monetary" options="{'currency_field': 'currency_id'}"/>
+                            <field name="property_appraisal_value" widget="monetary" options="{'currency_field': 'currency_id'}"/>
                             <field name="currency_id" groups="base.group_multi_currency"/>
+                            <field name="total_rentable_area"/>
+                            <field name="target_annual_yield"/>
+                            <field name="minimum_rent_factor"/>
+                            <field name="maximum_rent_factor"/>
                             <field name="available_date"/>
                             <field name="active"/>
                         </group>
@@ -57,7 +60,14 @@
                     <notebook>
                         <page string="Units" groups="commercial_property_management.group_property_manager">
                             <field name="unit_ids" context="{'default_property_id': active_id}" mode="tree,form">
-                                <tree><field name="code"/><field name="name"/><field name="area"/><field name="monthly_rent" widget="monetary"/><field name="state" widget="badge"/></tree>
+                                <tree>
+                                    <field name="code"/><field name="name"/><field name="area"/>
+                                    <field name="area_share" string="Informational Area Share (%)" groups="commercial_property_management.group_property_manager"/>
+                                    <field name="final_monthly_rent" string="Final Monthly Rent" widget="monetary" groups="commercial_property_management.group_property_manager"/>
+                                    <field name="recommended_monthly_rent" string="Recommended Monthly Rent" widget="monetary" groups="commercial_property_management.group_property_manager"/>
+                                    <field name="rent_status" widget="badge" groups="commercial_property_management.group_property_manager"/>
+                                    <field name="currency_id" invisible="1"/><field name="state" widget="badge"/>
+                                </tree>
                             </field>
                         </page>
                         <page string="Photo">
@@ -74,7 +84,7 @@
                                 <group>
                                     <field name="is_published"/>
                                     <field name="public_name" placeholder="e.g. Bright city-centre office"/>
-                                    <field name="public_monthly_rent" widget="monetary" options="{'currency_field': 'currency_id'}"/>
+                                    <field name="public_monthly_rent" string="Public Monthly Rent" widget="monetary" options="{'currency_field': 'currency_id'}"/>
                                 </group>
                                 <group>
                                     <field name="public_feature_ids" widget="many2many_tags"/>
@@ -101,7 +111,6 @@
                 <field name="property_type"/>
                 <field name="city"/>
                 <field name="area"/>
-                <field name="monthly_rent"/>
                 <field name="currency_id"/>
                 <field name="state"/>
                 <templates>
@@ -113,7 +122,6 @@
                                 <div class="text-muted"><field name="code"/></div>
                                 <div><field name="property_type"/> - <field name="city"/></div>
                                 <div><field name="area"/> m²</div>
-                                <div><field name="monthly_rent"/> / month</div>
                                 <div class="mt-2">
                                     <field name="state" widget="badge"/>
                                 </div>

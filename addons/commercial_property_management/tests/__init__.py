@@ -9,3 +9,4 @@ from . import test_commercial_property_unit_gallery
 from . import test_commercial_property_unit_characteristics
 from . import test_unit_characteristics_views
 from . import test_characteristics_e2e_smoke
+from . import test_commercial_property_rent

@@ -48,11 +48,35 @@ class CommercialProperty(models.Model):
     zip = fields.Char(string="ZIP")
     country_id = fields.Many2one("res.country", string="Country")
     area = fields.Float(string="Area", required=True, digits=(16, 2), help="Usable area in square meters.")
-    monthly_rent = fields.Monetary(required=True)
+    monthly_rent = fields.Monetary(
+        required=True,
+        help="Legacy compatibility field; use unit rent calculations and public rent instead.",
+    )
     currency_id = fields.Many2one(
         "res.currency",
         required=True,
         default=lambda self: self.env.company.currency_id,
+    )
+    property_appraisal_value = fields.Monetary(
+        string="Property Appraisal Value", currency_field="currency_id",
+        groups="commercial_property_management.group_property_manager",
+        help="Single source of truth for the property's appraisal value.",
+    )
+    total_rentable_area = fields.Float(
+        string="Total Active Rentable Area (m²)", compute="_compute_rentable_area", store=True,
+        digits=(16, 2), groups="commercial_property_management.group_property_manager",
+    )
+    target_annual_yield = fields.Float(
+        string="Target Annual Yield (%)", groups="commercial_property_management.group_property_manager",
+        help="Annual yield used to calculate suggested monthly rents.",
+    )
+    minimum_rent_factor = fields.Float(
+        string="Minimum Suggested Rent Factor", default=0.90,
+        groups="commercial_property_management.group_property_manager",
+    )
+    maximum_rent_factor = fields.Float(
+        string="Maximum Suggested Rent Factor", default=1.10,
+        groups="commercial_property_management.group_property_manager",
     )
     available_date = fields.Date(string="Available From")
     image_1920 = fields.Image(
@@ -174,6 +198,13 @@ class CommercialProperty(models.Model):
                 property_record.default_unit_id = default_unit
         return True
 
+    @api.depends("unit_ids.area", "unit_ids.active")
+    def _compute_rentable_area(self):
+        for property_record in self:
+            property_record.total_rentable_area = sum(
+                property_record.unit_ids.filtered("active").mapped("area")
+            )
+
     @api.model
     def _migrate_units_from_properties(self):
         self.search([])._ensure_default_units()
@@ -189,6 +220,23 @@ class CommercialProperty(models.Model):
                 raise ValidationError(_("The area must be greater than zero."))
             if property_record.monthly_rent < 0:
                 raise ValidationError(_("The monthly rent cannot be negative."))
+
+    @api.constrains(
+        "property_appraisal_value", "target_annual_yield",
+        "minimum_rent_factor", "maximum_rent_factor",
+    )
+    def _check_rent_configuration(self):
+        for property_record in self:
+            if property_record.property_appraisal_value < 0:
+                raise ValidationError(_("The property appraisal value cannot be negative."))
+            if property_record.target_annual_yield < 0:
+                raise ValidationError(_("The target annual yield cannot be negative."))
+            if property_record.property_appraisal_value > 0 and property_record.target_annual_yield <= 0:
+                raise ValidationError(_("A positive target annual yield is required when an appraisal is configured."))
+            if property_record.minimum_rent_factor <= 0 or property_record.maximum_rent_factor <= 0:
+                raise ValidationError(_("Rent factors must be greater than zero."))
+            if property_record.minimum_rent_factor > property_record.maximum_rent_factor:
+                raise ValidationError(_("The minimum rent factor cannot exceed the maximum factor."))
 
     @api.constrains("is_published", "public_name", "public_description", "public_monthly_rent")
     def _check_public_listing(self):

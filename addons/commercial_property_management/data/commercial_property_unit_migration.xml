@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <function model="commercial.property" name="_migrate_units_from_properties"/>
+    <function model="commercial.property.unit" name="_initialize_final_monthly_rents"/>
     <function model="commercial.property.unit" name="_migrate_images_to_gallery"/>
 </odoo>

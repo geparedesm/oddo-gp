@@ -28,8 +28,38 @@ class CommercialPropertyUnit(models.Model):
     floor = fields.Char()
     entrance_description = fields.Char(string="Entrance / Facade Description", translate=True)
     area = fields.Float(string="Area", required=True, digits=(16, 2), help="Usable area in square meters.")
-    monthly_rent = fields.Monetary(required=True)
+    monthly_rent = fields.Monetary(
+        required=True,
+        help="Legacy compatibility field; use Final Monthly Rent for operational rent decisions.",
+    )
     currency_id = fields.Many2one(related="property_id.currency_id", store=True, readonly=True)
+    unit_adjustment_factor = fields.Float(
+        string="Unit Adjustment Factor", default=1.0,
+        groups="commercial_property_management.group_property_manager",
+    )
+    area_share = fields.Float(
+        string="Informational Area Share (%)", compute="_compute_rent_recommendation", store=True,
+        groups="commercial_property_management.group_property_manager",
+        help="Informational proportion of this unit's area over the active units' total area; it does not determine rent.",
+    )
+    estimated_property_value = fields.Monetary(string="Estimated Property Value", currency_field="currency_id", compute="_compute_rent_recommendation", store=True, groups="commercial_property_management.group_property_manager")
+    base_monthly_rent = fields.Monetary(string="Base Monthly Rent", currency_field="currency_id", compute="_compute_rent_recommendation", store=True, groups="commercial_property_management.group_property_manager")
+    minimum_suggested_rent = fields.Monetary(string="Minimum Suggested Rent", currency_field="currency_id", compute="_compute_rent_recommendation", store=True, groups="commercial_property_management.group_property_manager")
+    recommended_monthly_rent = fields.Monetary(string="Recommended Monthly Rent", currency_field="currency_id", compute="_compute_rent_recommendation", store=True, groups="commercial_property_management.group_property_manager")
+    maximum_suggested_rent = fields.Monetary(string="Maximum Suggested Rent", currency_field="currency_id", compute="_compute_rent_recommendation", store=True, groups="commercial_property_management.group_property_manager")
+    final_monthly_rent = fields.Monetary(
+        string="Final Monthly Rent", currency_field="currency_id",
+        groups="commercial_property_management.group_property_manager",
+        help="Manual rent. Initialized from legacy monthly rent only when the unit is created.",
+    )
+    rent_per_sqm = fields.Monetary(string="Rent per m²", currency_field="currency_id", compute="_compute_rent_recommendation", store=True, groups="commercial_property_management.group_property_manager")
+    rent_difference = fields.Monetary(string="Rent Difference", currency_field="currency_id", compute="_compute_rent_recommendation", store=True, groups="commercial_property_management.group_property_manager")
+    rent_difference_percent = fields.Float(string="Rent Difference (%)", compute="_compute_rent_recommendation", store=True, groups="commercial_property_management.group_property_manager")
+    rent_status = fields.Selection(
+        [("below", "🔴 Below"), ("within", "🟢 Within"), ("above", "🟠 Above")],
+        string="Rent Indicator", compute="_compute_rent_recommendation", store=True,
+        groups="commercial_property_management.group_property_manager",
+    )
     available_date = fields.Date(string="Available From")
     image_ids = fields.One2many("commercial.property.unit.image", "unit_id", string="Images")
     image_1920 = fields.Image(
@@ -202,6 +232,11 @@ class CommercialPropertyUnit(models.Model):
                 vals.setdefault("publication_date", today)
                 vals.setdefault("publication_approved_by_id", self.env.user.id)
         units = super().create(vals_list)
+
+        # Preserve the legacy rent while initializing the new manual value once.
+        for unit, vals in zip(units, vals_list):
+            if "final_monthly_rent" not in vals:
+                unit.with_context(_rent_sync=True).write({"final_monthly_rent": unit.monthly_rent})
         
         # Trigger property availability sync for newly created units
         properties = units.mapped('property_id')
@@ -220,6 +255,9 @@ class CommercialPropertyUnit(models.Model):
             vals.setdefault("unpublish_reason", False)
             vals.setdefault("unpublish_notes", False)
         
+        if "final_monthly_rent" in vals and not self.env.context.get("_rent_sync"):
+            vals = dict(vals)
+            vals["monthly_rent"] = vals["final_monthly_rent"]
         result = super().write(vals)
         
         # If state changed, sync property availability
@@ -237,6 +275,54 @@ class CommercialPropertyUnit(models.Model):
                 raise ValidationError(_("The area must be greater than zero."))
             if unit.monthly_rent < 0:
                 raise ValidationError(_("The monthly rent cannot be negative."))
+
+    @api.constrains("unit_adjustment_factor")
+    def _check_rent_adjustment(self):
+        if any(unit.unit_adjustment_factor <= 0 for unit in self):
+            raise ValidationError(_("The unit adjustment factor must be greater than zero."))
+
+    @api.depends(
+        "area", "active", "property_id", "unit_adjustment_factor",
+        "property_id.area", "property_id.property_appraisal_value", "property_id.total_rentable_area",
+        "property_id.target_annual_yield", "property_id.minimum_rent_factor",
+        "property_id.maximum_rent_factor", "final_monthly_rent",
+    )
+    def _compute_rent_recommendation(self):
+        for unit in self:
+            property_record = unit.property_id
+            total_area = property_record.total_rentable_area
+            property_area = property_record.area
+            appraisal = property_record.property_appraisal_value
+            valid = bool(
+                unit.active and unit.area > 0 and property_area > 0 and appraisal > 0
+                and property_record.target_annual_yield > 0
+                and property_record.minimum_rent_factor > 0
+                and property_record.maximum_rent_factor > 0
+            )
+            if not valid:
+                for field_name in (
+                    "area_share", "estimated_property_value", "base_monthly_rent",
+                    "minimum_suggested_rent", "recommended_monthly_rent",
+                    "maximum_suggested_rent", "rent_per_sqm", "rent_difference",
+                    "rent_difference_percent",
+                ):
+                    setattr(unit, field_name, 0.0)
+                unit.rent_status = False
+                continue
+            unit.area_share = unit.area / total_area * 100.0
+            unit.estimated_property_value = appraisal / property_area * unit.area
+            unit.base_monthly_rent = unit.estimated_property_value * property_record.target_annual_yield / 100.0 / 12.0
+            unit.recommended_monthly_rent = unit.base_monthly_rent * unit.unit_adjustment_factor
+            unit.minimum_suggested_rent = unit.recommended_monthly_rent * property_record.minimum_rent_factor
+            unit.maximum_suggested_rent = unit.recommended_monthly_rent * property_record.maximum_rent_factor
+            unit.rent_per_sqm = unit.final_monthly_rent / unit.area if unit.area else 0.0
+            unit.rent_difference = unit.final_monthly_rent - unit.recommended_monthly_rent
+            unit.rent_difference_percent = unit.rent_difference / unit.recommended_monthly_rent * 100.0 if unit.recommended_monthly_rent else 0.0
+            unit.rent_status = (
+                "below" if unit.final_monthly_rent < unit.minimum_suggested_rent
+                else "above" if unit.final_monthly_rent > unit.maximum_suggested_rent
+                else "within"
+            )
 
     @api.constrains("is_published", "public_name", "public_description", "public_monthly_rent")
     def _check_public_listing(self):
@@ -369,6 +455,14 @@ class CommercialPropertyUnit(models.Model):
                 and unit.public_location_hint
                 and unit.virtual_tour_url
             )
+
+    @api.model
+    def _initialize_final_monthly_rents(self):
+        """Backfill the manual rent for units created before this feature."""
+        units = self.search([("final_monthly_rent", "=", 0)])
+        for unit in units:
+            unit.with_context(_rent_sync=True).write({"final_monthly_rent": unit.monthly_rent})
+        return True
 
     @api.model
     def _migrate_images_to_gallery(self):

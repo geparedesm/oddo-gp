@@ -1,7 +1,7 @@
 {
     "name": "Commercial Property Management",
     "summary": "Manage commercial property operations",
-    "version": "16.0.1.2.0",
+    "version": "16.0.1.3.0",
     "category": "Services/Property Management",
     "license": "LGPL-3",
     "depends": ["base", "contacts", "mail"],
