@@ -7,7 +7,7 @@ Los tests E2E ahora están **protegidos contra daños accidentales** en tu base 
 1. **Base de datos dedicada**: Los tests E2E solo pueden ejecutarse en una base de pruebas separada
 2. **Flag de activación explícita**: Requiere `E2E_TESTS_ENABLED=true` en `.env.e2e`
 3. **Validación en tiempo de ejecución**: Verificación en `playwright.config.mjs` y `run-e2e.sh`
-4. **Limpieza automática**: Script para limpiar registros de E2E en la base de desarrollo
+4. **Limpieza obligatoria**: Todos los registros creados por E2E deben eliminarse al terminar cada ejecución, incluso si alguna prueba falla
 
 ## 📋 Configuración Inicial
 
@@ -105,9 +105,16 @@ cat scripts/cleanup-e2e-records.sh | grep -A 5 "is_e2e_record"
 # 3. Ejecutar tests
 ./scripts/run-e2e.sh
 
-# 4. Limpiar datos de E2E después (OPCIONAL)
-# ./scripts/cleanup-e2e-records.sh
+# 4. Limpiar datos de E2E después (OBLIGATORIO, también si fallan las pruebas)
+./scripts/cleanup-e2e-records.sh
 ```
+
+La limpieza debe ejecutarse siempre al finalizar la suite y debe abarcar todos
+los modelos tocados por E2E, incluidos módulos auxiliares como `job_hunter`.
+No se debe considerar completada una ejecución mientras existan registros
+creados por las pruebas. Si el runner se automatiza, la limpieza debe estar en
+un bloque `finally` o un `trap` para cubrir ejecuciones con error o
+interrupción.
 
 ## 🔍 Verificación Técnica
 

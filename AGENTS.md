@@ -14,7 +14,12 @@ following sequence as mandatory quality gates:
    pages, messages, or any end-user workflow.
 6. Use `odoo-e2e` when an end-user workflow, endpoint, or browser asset is
    affected. Verify the browser console and relevant network requests.
-7. Inspect `git diff`, relevant Docker logs, and update concise documentation
+7. After every E2E run, remove every record created by the E2E workflow,
+   including records from auxiliary modules such as `job_hunter`. This cleanup
+   is mandatory whether the run passes, fails, or is interrupted; use a
+   `finally`/`trap` cleanup path when the runner supports it, and verify that
+   no E2E-created records remain.
+8. Inspect `git diff`, relevant Docker logs, and update concise documentation
    before reporting completion.
 
 Do not claim a change is complete when a required check fails or was not run.
