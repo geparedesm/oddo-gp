@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="source_seek" model="job.hunter.search.source"><field name="name">SEEK</field><field name="code">seek</field></record>
+    <record id="source_linkedin" model="job.hunter.search.source"><field name="name">LinkedIn</field><field name="code">linkedin</field></record>
+    <record id="source_indeed" model="job.hunter.search.source"><field name="name">Indeed</field><field name="code">indeed</field></record>
+    <record id="source_jora" model="job.hunter.search.source"><field name="name">Jora</field><field name="code">jora</field></record>
+    <record id="source_company_careers" model="job.hunter.search.source"><field name="name">Company Careers</field><field name="code">company_careers</field></record>
+</odoo>

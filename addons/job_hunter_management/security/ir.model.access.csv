@@ -1,2 +1,6 @@
 id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
 access_job_application_user,job.application.user,model_job_application,job_hunter_management.group_job_hunter_user,1,1,1,1
+access_job_hunter_search_config_user,job.hunter.search.config.user,model_job_hunter_search_config,job_hunter_management.group_job_hunter_user,1,1,1,1
+access_job_hunter_search_source_user,job.hunter.search.source.user,model_job_hunter_search_source,job_hunter_management.group_job_hunter_user,1,0,0,0
+access_job_hunter_search_run_user,job.hunter.search.run.user,model_job_hunter_search_run,job_hunter_management.group_job_hunter_user,1,1,1,1
+access_job_hunter_search_run_line_user,job.hunter.search.run.line.user,model_job_hunter_search_run_line,job_hunter_management.group_job_hunter_user,1,0,0,0

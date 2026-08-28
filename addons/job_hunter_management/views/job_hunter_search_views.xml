@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_job_hunter_search_config_tree" model="ir.ui.view">
+        <field name="name">job.hunter.search.config.tree</field>
+        <field name="model">job.hunter.search.config</field>
+        <field name="arch" type="xml">
+            <tree>
+                <field name="name"/>
+                <field name="keywords"/>
+                <field name="location"/>
+                <field name="modalidad"/>
+                <field name="max_age_days"/>
+                <field name="active"/>
+            </tree>
+        </field>
+    </record>
+    <record id="view_job_hunter_search_config_form" model="ir.ui.view">
+        <field name="name">job.hunter.search.config.form</field>
+        <field name="model">job.hunter.search.config</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_run" type="object" string="Run Search" class="oe_highlight"/>
+                </header>
+                <sheet>
+                    <group>
+                        <field name="name"/>
+                        <field name="active"/>
+                        <field name="keywords"/>
+                        <field name="roles"/>
+                        <field name="location"/>
+                        <field name="modalidad"/>
+                        <field name="salary_min"/>
+                        <field name="max_age_days"/>
+                        <field name="source_ids" widget="many2many_tags"/>
+                        <field name="last_run_at" readonly="1"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+    <record id="view_job_hunter_search_run_tree" model="ir.ui.view">
+        <field name="name">job.hunter.search.run.tree</field>
+        <field name="model">job.hunter.search.run</field>
+        <field name="arch" type="xml">
+            <tree>
+                <field name="started_at"/>
+                <field name="config_id"/>
+                <field name="state"/>
+                <field name="total_found"/>
+                <field name="total_new"/>
+                <field name="total_duplicates"/>
+                <field name="total_errors"/>
+                <field name="duration_seconds"/>
+            </tree>
+        </field>
+    </record>
+    <record id="view_job_hunter_search_run_form" model="ir.ui.view">
+        <field name="name">job.hunter.search.run.form</field>
+        <field name="model">job.hunter.search.run</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <group>
+                        <field name="config_id"/>
+                        <field name="state"/>
+                        <field name="started_at"/>
+                        <field name="finished_at"/>
+                        <field name="duration_seconds"/>
+                        <field name="total_found"/>
+                        <field name="total_new"/>
+                        <field name="total_duplicates"/>
+                        <field name="total_errors"/>
+                    </group>
+                    <field name="line_ids">
+                        <tree>
+                            <field name="source"/>
+                            <field name="found"/>
+                            <field name="new_count"/>
+                            <field name="duplicate_count"/>
+                            <field name="error_count"/>
+                            <field name="error_message"/>
+                        </tree>
+                    </field>
+                </sheet>
+            </form>
+        </field>
+    </record>
+    <record id="action_job_hunter_search_config" model="ir.actions.act_window"><field name="name">Search Configurations</field><field name="res_model">job.hunter.search.config</field><field name="view_mode">tree,form</field></record>
+    <record id="action_job_hunter_search_run" model="ir.actions.act_window"><field name="name">Search Runs</field><field name="res_model">job.hunter.search.run</field><field name="view_mode">tree,form</field></record>
+    <menuitem id="menu_job_hunter_search_config" name="Search Configurations" parent="menu_job_hunter_root" action="action_job_hunter_search_config" sequence="20" groups="job_hunter_management.group_job_hunter_user"/>
+    <menuitem id="menu_job_hunter_search_run" name="Search Runs" parent="menu_job_hunter_root" action="action_job_hunter_search_run" sequence="30" groups="job_hunter_management.group_job_hunter_user"/>
+</odoo>

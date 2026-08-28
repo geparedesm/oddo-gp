@@ -1,4 +1,5 @@
 import logging
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from odoo import _, api, fields, models
 from odoo.exceptions import ValidationError
@@ -63,6 +64,10 @@ class JobApplication(models.Model):
     external_id = fields.Char(string="External ID", index=True)
     source_job_id = fields.Char(string="Source Job ID", index=True)
     raw_job_data = fields.Json(string="Raw Job Data")
+    modalidad = fields.Selection(
+        [("onsite", "Onsite"), ("hybrid", "Hybrid"), ("remote", "Remote")],
+        string="Work Mode",
+    )
     last_sync_at = fields.Datetime(string="Last Sync At")
     created_by_integration = fields.Boolean(string="Created by Integration", default=False, index=True)
 
@@ -78,8 +83,8 @@ class JobApplication(models.Model):
             "An application with this job URL already exists.",
         ),
         (
-            "job_application_company_position_unique",
-            "unique(company_name, name)",
+            "job_app_company_pos_loc_unique",
+            "unique(company_name, name, location)",
             "An application for this company and position already exists.",
         ),
     ]
@@ -87,18 +92,12 @@ class JobApplication(models.Model):
     @api.model
     def _check_duplicate_values(self, values, excluded_ids=None):
         excluded_ids = excluded_ids or []
+        position_domain = [("company_name", "=", values.get("company_name")), ("name", "=", values.get("name"))]
+        if values.get("location"):
+            position_domain.append(("location", "=", values["location"]))
         duplicate_checks = (
-            (
-                [("job_url", "=", values.get("job_url"))],
-                _("An application with this job URL already exists."),
-            ),
-            (
-                [
-                    ("company_name", "=", values.get("company_name")),
-                    ("name", "=", values.get("name")),
-                ],
-                _("An application for this company and position already exists."),
-            ),
+            ([("job_url", "=", values.get("job_url"))], _("An application with this job URL already exists.")),
+            (position_domain, _("An application for this company and position already exists.")),
         )
         for domain, message in duplicate_checks:
             if all(value for _field, _operator, value in domain):
@@ -114,7 +113,7 @@ class JobApplication(models.Model):
         for values in values_list:
             self._check_duplicate_values(values)
             job_url = values.get("job_url")
-            company_position = (values.get("company_name"), values.get("name"))
+            company_position = (values.get("company_name"), values.get("name"), values.get("location"))
             if job_url and job_url in pending_urls:
                 raise ValidationError(_("An application with this job URL already exists."))
             if all(company_position) and company_position in pending_company_positions:
@@ -138,6 +137,7 @@ class JobApplication(models.Model):
                 "job_url": values.get("job_url", application.job_url),
                 "company_name": values.get("company_name", application.company_name),
                 "name": values.get("name", application.name),
+                "location": values.get("location", application.location),
             }
             for application in self
         }
@@ -150,6 +150,7 @@ class JobApplication(models.Model):
             company_position = (
                 application_values["company_name"],
                 application_values["name"],
+                application_values.get("location"),
             )
             if job_url in seen_urls:
                 raise ValidationError(_("An application with this job URL already exists."))
@@ -192,7 +193,45 @@ class JobApplication(models.Model):
             "date_applied": fields.Date.to_string(self.date_applied) if self.date_applied else None,
             "last_sync_at": fields.Datetime.to_string(self.last_sync_at) if self.last_sync_at else None,
             "created_by_integration": bool(self.created_by_integration),
+            "modalidad": self.modalidad or None,
         }
+
+    @api.model
+    def sync_normalized_job(self, values):
+        """Idempotently store an already-normalized discovery result.
+
+        This is shared by scheduled/manual discovery and keeps the API's model
+        contract in one place.  It deliberately never changes application state.
+        """
+        source = values.get("source")
+        source_job_id = values.get("source_job_id")
+        canonical = self._canonical_url(values.get("job_url"))
+        candidates = self.search([])
+        for record in candidates:
+            if source_job_id and record.source == source and record.source_job_id == source_job_id:
+                return False
+            if canonical and self._canonical_url(record.job_url) == canonical:
+                return False
+            if (record.company_name or "").strip().casefold() == (values.get("company_name") or "").strip().casefold() \
+                    and (record.name or "").strip().casefold() == (values.get("name") or "").strip().casefold() \
+                    and (record.location or "").strip().casefold() == (values.get("location") or "").strip().casefold():
+                return False
+        values = dict(values)
+        values.setdefault("state", "found")
+        values.setdefault("sponsorship_status", "unknown")
+        values["created_by_integration"] = True
+        values["last_sync_at"] = fields.Datetime.now()
+        self.create(values)
+        return True
+
+    @staticmethod
+    def _canonical_url(url):
+        parts = urlsplit((url or "").strip())
+        if not parts.scheme or not parts.netloc:
+            return ""
+        query = [(key, value) for key, value in parse_qsl(parts.query, keep_blank_values=True)
+                 if key.lower() not in {"ref", "source", "trk"} and not key.lower().startswith("utm_")]
+        return urlunsplit((parts.scheme.lower(), parts.netloc.lower(), parts.path.rstrip("/") or "/", urlencode(query), ""))
 
     @api.constrains("external_id")
     def _check_external_id(self):

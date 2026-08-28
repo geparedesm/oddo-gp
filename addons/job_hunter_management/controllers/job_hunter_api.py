@@ -21,13 +21,14 @@ class HermesJobHunterController(http.Controller):
         "external_id", "source_job_id", "name", "company_name", "location", "job_url",
         "source", "salary_min", "salary_max", "salary_currency", "sponsorship_status",
         "match_score", "state", "job_description", "date_found", "date_applied",
-        "raw_job_data",
+        "raw_job_data", "modalidad",
     }
     _UPDATE_FIELDS = _CREATE_FIELDS - {"external_id", "job_url", "company_name", "name"}
     _SELECTIONS = {
         "source": {"seek", "linkedin", "indeed", "jora", "company_careers", "other"},
         "sponsorship_status": {"yes", "no", "unknown"},
         "state": {"found", "analysing", "good_match", "ready_to_apply", "applied", "interview", "offer", "rejected", "ignored"},
+        "modalidad": {"onsite", "hybrid", "remote"},
     }
     _NUMERIC_FIELDS = {"salary_min", "salary_max", "match_score"}
 

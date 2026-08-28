@@ -93,6 +93,7 @@
                         <group>
                             <field name="company_name"/>
                             <field name="location"/>
+                            <field name="modalidad"/>
                             <field name="job_url" widget="url"/>
                             <field name="source"/>
                             <field name="sponsorship_status"/>
