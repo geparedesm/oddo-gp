@@ -1,0 +1,2 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_job_application_user,job.application.user,model_job_application,job_hunter_management.group_job_hunter_user,1,1,1,1
