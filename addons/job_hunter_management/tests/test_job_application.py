@@ -1,7 +1,5 @@
-from psycopg2 import IntegrityError
-
 from odoo import fields
-from odoo.exceptions import ValidationError
+from odoo.exceptions import AccessError, ValidationError
 from odoo.tests.common import TransactionCase
 
 
@@ -32,21 +30,53 @@ class TestJobApplication(TransactionCase):
         with self.assertRaises(ValidationError), self.env.cr.savepoint():
             application.write({"match_score": -1})
 
-    def test_duplicate_rejected_on_create_and_write(self):
-        self.env["job.application"].create(self._values())
-        with self.assertRaises(IntegrityError), self.env.cr.savepoint():
-            self.env["job.application"].create(self._values())
+    def test_duplicate_url_rejected_on_create_and_write(self):
+        original = self.env["job.application"].create(self._values())
+        with self.assertRaises(ValidationError), self.env.cr.savepoint():
+            self.env["job.application"].create(
+                self._values(
+                    name="Different Position",
+                    company_name="Different Company",
+                )
+            )
 
         other = self.env["job.application"].create(
-            self._values(name="Python Developer", job_url="https://example.test/jobs/python")
-        )
-        with self.assertRaises(IntegrityError), self.env.cr.savepoint():
-            other.write(
-                {
-                    "name": "Odoo Developer",
-                    "job_url": self._values()["job_url"],
-                }
+            self._values(
+                name="Python Developer",
+                company_name="Other Pty Ltd",
+                job_url="https://example.test/jobs/python",
             )
+        )
+        with self.assertRaises(ValidationError), self.env.cr.savepoint():
+            other.write({"job_url": original.job_url})
+
+    def test_duplicate_company_position_rejected_on_create_and_write(self):
+        original = self.env["job.application"].create(self._values())
+        with self.assertRaises(ValidationError), self.env.cr.savepoint():
+            self.env["job.application"].create(
+                self._values(job_url="https://example.test/jobs/another-url")
+            )
+
+        other = self.env["job.application"].create(
+            self._values(
+                name="Python Developer",
+                company_name="Other Pty Ltd",
+                job_url="https://example.test/jobs/python",
+            )
+        )
+        with self.assertRaises(ValidationError), self.env.cr.savepoint():
+            other.write({"name": original.name, "company_name": original.company_name})
+
+    def test_url_is_not_aggressively_normalized(self):
+        original = self.env["job.application"].create(self._values())
+        variant = self.env["job.application"].create(
+            self._values(
+                name="Odoo Developer II",
+                job_url=f"{original.job_url}?ref=campaign",
+            )
+        )
+
+        self.assertEqual(variant.job_url, f"{original.job_url}?ref=campaign")
 
     def test_required_identifiers_reject_whitespace(self):
         for field_name in ("name", "company_name", "job_url"):
@@ -66,6 +96,42 @@ class TestJobApplication(TransactionCase):
         self.assertEqual(application.date_applied, fields.Date.from_string("2026-08-28"))
         application.write({"date_applied": False, "state": "found"})
         self.assertFalse(application.date_applied)
+
+    def test_date_applied_is_preserved_in_later_application_states(self):
+        application = self.env["job.application"].create(
+            self._values(state="applied", date_applied="2026-08-28")
+        )
+
+        for state in ("interview", "offer", "rejected"):
+            application.write({"state": state})
+            self.assertEqual(application.date_applied, fields.Date.from_string("2026-08-28"))
+
+    def test_ignored_state_does_not_accept_date_applied(self):
+        application = self.env["job.application"].create(
+            self._values(state="ignored")
+        )
+        self.assertEqual(application.state, "ignored")
+        with self.assertRaises(ValidationError), self.env.cr.savepoint():
+            application.write({"date_applied": "2026-08-28"})
+
+    def test_odoo_administrator_has_job_hunter_access(self):
+        administrator = self.env.ref("base.user_admin")
+
+        self.assertIn(
+            self.env.ref("job_hunter_management.group_job_hunter_user"),
+            administrator.groups_id,
+        )
+        self.env["job.application"].with_user(administrator).search([], limit=1)
+
+    def test_unauthorized_user_has_no_job_hunter_access(self):
+        unauthorized_user = self.env.ref("base.public_user")
+
+        self.assertNotIn(
+            self.env.ref("job_hunter_management.group_job_hunter_user"),
+            unauthorized_user.groups_id,
+        )
+        with self.assertRaises(AccessError):
+            self.env["job.application"].with_user(unauthorized_user).search([])
 
     def test_salary_range(self):
         application = self.env["job.application"].create(

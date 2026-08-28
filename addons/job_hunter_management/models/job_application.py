@@ -43,6 +43,7 @@ class JobApplication(models.Model):
             ("interview", "Interview"),
             ("offer", "Offer"),
             ("rejected", "Rejected"),
+            ("ignored", "Ignored"),
         ],
         required=True,
         default="found",
@@ -57,11 +58,88 @@ class JobApplication(models.Model):
 
     _sql_constraints = [
         (
-            "job_application_company_position_url_unique",
-            "unique(company_name, name, job_url)",
-            "An application for this company, position, and job URL already exists.",
+            "job_application_url_unique",
+            "unique(job_url)",
+            "An application with this job URL already exists.",
+        ),
+        (
+            "job_application_company_position_unique",
+            "unique(company_name, name)",
+            "An application for this company and position already exists.",
         ),
     ]
+
+    @api.model
+    def _check_duplicate_values(self, values, excluded_ids=None):
+        excluded_ids = excluded_ids or []
+        duplicate_checks = (
+            (
+                [("job_url", "=", values.get("job_url"))],
+                _("An application with this job URL already exists."),
+            ),
+            (
+                [
+                    ("company_name", "=", values.get("company_name")),
+                    ("name", "=", values.get("name")),
+                ],
+                _("An application for this company and position already exists."),
+            ),
+        )
+        for domain, message in duplicate_checks:
+            if all(value for _field, _operator, value in domain):
+                if excluded_ids:
+                    domain.append(("id", "not in", excluded_ids))
+                if self.with_context(active_test=False).search_count(domain):
+                    raise ValidationError(message)
+
+    @api.model_create_multi
+    def create(self, values_list):
+        pending_urls = set()
+        pending_company_positions = set()
+        for values in values_list:
+            self._check_duplicate_values(values)
+            job_url = values.get("job_url")
+            company_position = (values.get("company_name"), values.get("name"))
+            if job_url and job_url in pending_urls:
+                raise ValidationError(_("An application with this job URL already exists."))
+            if all(company_position) and company_position in pending_company_positions:
+                raise ValidationError(
+                    _("An application for this company and position already exists.")
+                )
+            if job_url:
+                pending_urls.add(job_url)
+            if all(company_position):
+                pending_company_positions.add(company_position)
+        return super().create(values_list)
+
+    def write(self, values):
+        effective_values = {
+            application.id: {
+                "job_url": values.get("job_url", application.job_url),
+                "company_name": values.get("company_name", application.company_name),
+                "name": values.get("name", application.name),
+            }
+            for application in self
+        }
+        seen_urls = set()
+        seen_company_positions = set()
+        for application in self:
+            application_values = effective_values[application.id]
+            self._check_duplicate_values(application_values, excluded_ids=self.ids)
+            job_url = application_values["job_url"]
+            company_position = (
+                application_values["company_name"],
+                application_values["name"],
+            )
+            if job_url in seen_urls:
+                raise ValidationError(_("An application with this job URL already exists."))
+            if company_position in seen_company_positions:
+                raise ValidationError(
+                    _("An application for this company and position already exists.")
+                )
+            seen_urls.add(job_url)
+            seen_company_positions.add(company_position)
+        return super().write(values)
 
     @api.constrains("name", "company_name", "job_url")
     def _check_required_text(self):

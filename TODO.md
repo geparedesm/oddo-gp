@@ -1,459 +1,722 @@
-# Commercial Property Management - Development Roadmap
-
-Build a new Odoo 16 Community module from scratch in small, verifiable stages.
-Complete and test one phase before starting the next. Do not reuse the previous
-compiled module or its database state.
-
-## Working Rules
-
-- Keep the technical module name: `commercial_property_management`.
-- Use a clean development database for the new module. Do not delete the current
-  database or its data without a confirmed backup and explicit approval.
-- At the end of every phase: upgrade the module, inspect Odoo and Docker logs,
-  run the relevant automated checks, and test the listed browser flow.
-- Before closing a phase, run `npm run test:all`. It installs the module in an
-  isolated temporary database, upgrades it in the development database, and
-  runs the browser smoke test. The temporary database is removed after success
-  and retained after a failure for diagnosis.
-- Add security and translation-ready strings with each feature, not as a final
-  cleanup task.
-
-## Phase 0 - Clean Start
-
-Goal: create an isolated baseline with no dependency on the previous module.
-
-- [x] Choose and create a clean local Odoo development database.
-- [x] Confirm the old compiled module is absent; no archive or deletion was
-      required.
-- [x] Create a fresh `commercial_property_management` module directory.
-- [x] Confirm the Docker services and Playwright smoke test can run.
-
-Done when: the new database is available and the repository contains no source
-files copied from the previous module.
-
-## Phase 1 - Module Skeleton and Access
-
-Goal: install an empty but correctly structured module.
-
-- [x] Add the manifest, Python package, security directory, data directory and
-      views directory.
-- [x] Add minimal dependencies: `base`, `contacts` and `mail`.
-- [x] Create User, Manager and Administrator security groups.
-- [x] Add the root Commercial Properties menu, visible only to authorized users.
-- [x] Add a basic module icon and translatable labels.
-
-Done when: the module appears in Apps, installs and upgrades without errors,
-and its root menu is visible to an Administrator.
-
-## Phase 2 - Property Inventory
-
-Goal: register and manage commercial properties.
-
-- [x] Create the `commercial.property` model with identity, address, dimensions,
-      rent, availability date, status, notes and active fields.
-- [x] Add statuses: Available, Reserved, Rented, Maintenance and Inactive.
-- [x] Add model access rights and record rules.
-- [x] Add list, form and search views.
-- [x] Add sequence-generated property codes.
-
-Done when: a Manager can create, edit, archive and search a property; a User
-can only perform the intended read-only actions.
-
-## Phase 3 - Property Workflow and Usability
-
-Goal: make inventory status easy to understand and operate.
-
-- [x] Add a Kanban view with status, area and monthly rent.
-- [x] Add saved filters for Available, Rented and Maintenance.
-- [x] Add photos and internal notes.
-- [x] Improve field help, validation messages and form layout.
-
-Done when: a user can identify available properties from the menu, search and
-Kanban views without opening every record.
-
-## Phase 4 - Tenants
-
-Goal: manage tenants using Odoo contacts.
-
-- [x] Extend `res.partner` with tenant fields such as tenant flag,
-      identification number and internal notes.
-- [x] Add a Tenants menu and filtered contact action.
-- [x] Support both people and companies.
-- [x] Restrict private tenant information to authorized roles.
-
-Done when: a Manager can create a tenant and open the tenant from the Commercial
-Properties menu.
-
-## Phase 5 - Lease Contracts
-
-Goal: record the contract history between a property and a tenant.
-
-- [x] Create the `commercial.lease` model.
-- [x] Add draft, active, expired and cancelled states.
-- [x] Link lease, property and tenant records.
-- [x] Enforce at most one active lease per property.
-- [x] Show lease history on the property form.
-
-Done when: a Manager can create and activate a lease, and the property shows
-the current tenant and previous leases.
-
-## Phase 6 - Availability Automation
-
-Goal: make property availability depend on lease data instead of manual input.
-
-- [x] Set a property to Rented when its current lease becomes active.
-- [x] Set a property to Reserved for a future confirmed lease.
-- [x] Set a property to Available when the current lease ends or is cancelled.
-- [x] Add automated tests for each state transition and invalid overlap.
-
-Done when: changing a lease updates the property status correctly without a
-manual property edit.
-
-## Phase 7 - Public Property Layer and Hermes API
-
-Goal: expose only safe available-property data to an external agent.
-
-- [x] Add public name, description, price, features and publication fields.
-- [x] Create a separate public-data serializer or model method.
-- [x] Add authenticated endpoints for property search and property detail.
-- [x] Add filters for availability, minimum area and maximum rent.
-- [x] Test that tenant data, deposits, internal notes and contracts are never
-      returned by the API.
-
-Done when: a valid API client can search published available properties, while
-unauthorized clients and private fields are rejected.
-
-## Phase 8 - Hermes and WhatsApp Integration
-
-Goal: connect the stable public API to conversational property search.
-
-- [x] Define `search_properties`, `get_property` and
-      `get_available_properties` tools for Hermes.
-- [x] Convert conversational budget and area requests into API filters.
-- [x] Test successful, empty-result and invalid-request conversations.
-
-Done when: a WhatsApp conversation can return only the intended public property
-information from Odoo.
-
-## Phase 9 - Operations and Release Quality
-
-Goal: provide operational visibility after the core workflow is stable.
-
-- [x] Add dashboard metrics and upcoming-expiry indicators.
-- [x] Add lease-expiry activities at 90, 30 and 7 days.
-- [x] Complete Spanish and English translations.
-- [x] Run module-upgrade, security review, UX review and Playwright E2E tests.
-- [x] Document the administrator and developer workflows.
-
-Done when: all targeted checks pass and the application can be handed to an
-administrator with a clear setup and usage guide.
-
-## Phase 10 - Multi-unit Property Structure
-
-Goal: represent one building with multiple independently rentable commercial units.
-
-- [x] Add a building/property parent and commercial-unit child structure.
-- [x] Move unit-level availability, rent, photos, public details and lease history
-      to each commercial unit.
-- [x] Preserve existing one-property/one-unit records through an explicit
-      migration path.
-- [x] Verify that leasing one unit never changes the availability of other units
-      in the same building.
-
-Done when: Managers can lease and publish individual units within one building.
-
-## Phase 11 - WhatsApp Lead Intake and Visit Requests
-
-Goal: turn an enquiry from a public sign into a consented, manager-reviewed lead.
-
-- [x] Add a manager-only lead pipeline with consent, contact details, desired
-      start date, visit request and follow-up activities.
-- [x] Let Hermes identify a building/unit through street, zone, public photos and
-      human-facing descriptions, without requiring QR codes, live location or
-      technical codes.
-- [x] Add a narrow authenticated lead-submission API and MCP tool.
-- [x] Ensure chat never creates a tenant, reservation or lease automatically.
-
-Done when: A WhatsApp enquiry creates a safe lead and visit request for the
-correct commercial unit.
-
-## Phase 12 - Qualification, Visits and Controlled Reservations
-
-Goal: convert reviewed leads into appointments and manager-approved reservations.
-
-- [x] Add visit requests, scheduling, assignment, confirmation and cancellation.
-- [x] Add time-limited reservation requests with manager approval and expiry.
-- [x] Prevent conflicts with active leases, future leases and other reservations.
-- [x] Add activities for visit follow-up and reservation expiry.
-
-Done when: A manager can approve a non-conflicting, time-limited reservation
-without granting it automatically through WhatsApp.
-
-## Phase 13 - Applications, Documents and Contract Handoff
-
-Goal: prepare a reviewed prospect for a manager-controlled commercial lease.
-
-- [x] Add application checklists and approval states for people and companies.
-- [x] Use a secure authenticated upload flow for documents; never collect them in
-      WhatsApp.
-- [x] Generate non-binding proposals from manager-approved terms.
-- [x] Create only draft leases from approved applications; keep final activation
-      under manager control.
-
-Done when: Every active lease is traceable to an approved application and manual
-manager decision.
-
-## Phase 14 - Acquisition Analytics and Operational Hardening
-
-Goal: measure conversion while protecting the public automation channel.
-
-- [x] Measure enquiry, response, visit, reservation, contract and lost-reason
-      conversion by building and unit.
-- [x] Add rate limits, idempotency, abuse detection and retention/anonymization
-      for public leads.
-- [x] Restrict WhatsApp automation to safe lead-intake capabilities.
-- [x] Add alerts for API, MCP and queue failures.
-
-Done when: Managers can measure demand and the public channel is monitored and
-privacy-compliant.
-
-## Phase 15 - Property Operations and Maintenance
-
-Goal: manage inspections, incidents, repairs and handover work per unit.
-
-- [x] Add maintenance tickets, categories, assignment, costs and audit history.
-- [x] Add delivery/return checklists with manager-only evidence and photos.
-- [x] Show operational status and maintenance history on buildings and units.
-
-Done when: Managers can manage maintenance without exposing operational data in
-public listings or WhatsApp.
-
-## Phase 16 - Financial Operations and Portfolio Performance
-
-Goal: monitor commercial terms, collection status, vacancy and unit performance.
-
-- [x] Add manager-controlled deposits, rent adjustments, penalties and renewals.
-- [x] Evaluate Odoo Accounting integration for invoices, payments and overdue
-      reminders.
-- [x] Add occupancy, vacancy, income, delinquency and renewal reporting.
-
-Done when: Authorized managers can identify vacant, overdue and high-performing
-units from Odoo.
-
-## Phase 17 - Public Listing Quality and Controlled Distribution
-
-Goal: improve demand generation while preserving the public/private data boundary.
-
-- [x] Add public-listing quality checks for unit photos, name, area, rent,
-      features and non-sensitive location descriptions.
-- [x] Add manager approval, publication expiry and unpublishing reasons.
-- [x] Evaluate controlled distribution to a website, property portals and social
-      campaigns.
-- [x] Attribute enquiries and conversions to buildings, units and campaigns.
-
-Done when: Only approved available units are distributed publicly and managers
-can measure their conversion performance.
-
-## Phase 18 - Conversational Discipline, Budget Capture and Rich Unit Replies
-
-Goal: keep a WhatsApp conversation focused on one unit at a time, capture buyer
-intent, and present each unit with a photo, visit options and a USD price.
-
-- [x] Stop Hermes from listing or suggesting other available units once a
-      prospect is discussing a specific unit; only call `search_properties`
-      again if the prospect explicitly asks for alternatives or the unit they
-      were discussing becomes unavailable.
-- [x] Before searching or presenting a unit, have Hermes ask the prospect's
-      desired zone/location if not already given. Add a matching `zone`/
-      `location` filter to `search_public_units` and the
-      `/api/hermes/properties` endpoint (soft match against
-      `public_location_hint`/`city`, not an exact match).
-- [x] Capture the prospect's budget when volunteered and store it on
-      `commercial.property.lead` as a new `budget` field, passed through the
-      `submit_enquiry` payload, so Managers can compare stated willingness-to-pay
-      against each unit's `public_monthly_rent`. Product direction changed
-      mid-phase (commit `2f07300` → later uncommitted revision): Hermes no
-      longer proactively asks for budget before/while presenting a unit; it
-      only records it if the prospect volunteers it spontaneously, matching the
-      "never lead with budget" policy from `4ab9f3c`.
-- [x] Add a manager-set `virtual_tour_url` field to `commercial.property.unit`
-      (part of the publication quality checklist) and include it in
-      `get_public_data()`.
-- [x] Add an authenticated photo endpoint (e.g.
-      `/api/hermes/properties/<code>/photo`) so Hermes/WhatsApp can fetch and
-      attach the unit's `image_1920` as media; a bare link will not render
-      inline in WhatsApp.
-- [x] Make every unit reply from Hermes include: the photo (via the new
-      endpoint), the virtual tour link, and an explicit offer to request a
-      physical visit (reusing the existing `visit_requested` flag already
-      accepted by `submit_enquiry`). Also added a dedicated `get_property_photo`
-      tool and a "refresh before answering" notice so Hermes never answers
-      availability/price/photo questions from stale conversation history.
-- [x] Convert `public_monthly_rent` to USD in `get_public_data()` using
-      `res.currency` conversion rates, instead of returning the company's
-      operating currency. Keep internal records (leases, rent, deposits)
-      unchanged in their current currency.
-- [x] Make the public currency a setting, not a hardcoded conversion. Added
-  `res.config.settings.hermes_public_currency_id` (default USD) next to the
-  other Hermes settings instead of hardcoding USD in the controller.
-- [x] Treat the zone/location filter as soft matching (`ilike`), not exact —
-  prospects phrase areas loosely. Also matches on building name in addition to
-  `public_location_hint`/city. If it returns zero units, have Hermes ask
-  for a different area instead of a dead end.
-- [x] Store the new `budget` field in USD, matching the now-USD
-  `public_monthly_rent`, so Phase 16's demand/price reporting can compare them
-  directly without a conversion step.
-- [x] "Never mention other units" is a Hermes tool-use/system-prompt rule, not
-  just a backend change — verified `get_public_data()` never leaks a
-  sibling-unit hint (e.g. a "similar units" field) that would undercut it.
-- [x] Reuse the same bearer-token check (`_is_authenticated`) on the new photo
-  endpoint. Still serves the manager-facing full-resolution `image_1920`
-  as-is rather than a resized copy — the bandwidth/exposure optimization
-  from this note was not implemented.
-- [x] Update Hermes's tool descriptions (from Phase 8) to document the new `zone`
-  filter and the USD currency, so the AI's behavior matches the backend
-  change immediately rather than drifting from stale tool docs.
-Done when: A WhatsApp prospect can search by zone, sees prices in USD,
-receives a photo and virtual-tour link with every unit reply, is offered
-a physical visit, has any spontaneously-volunteered budget recorded, and is
-never shown other units unless they ask. Open: verifying exchange-rate
-freshness in the live database, and optionally serving a resized photo.
-
-## Phase 19 - Navigation UX Reorganization in Odoo
-
-Goal: group the module's 16 flat top-level menu items into functional areas
-that follow the business flow, without touching models, data or existing
-XML IDs, so the top app bar stops overflowing into Odoo's "+" overflow menu.
-
-Current state (inspected in `views/commercial_property_menus.xml`): a single
-`menu_commercial_property_root` with 16 direct children, all sharing
-sequences 10-90 — Properties, Commercial Units, Tenants, Enquiries, Visits,
-Reservations, Applications, Integration Alerts, Lease Contracts, Maintenance,
-Maintenance Dashboard, Delivery/Return Checklists, Penalties, Portfolio
-Performance, Distribution Channels, Campaign Attribution, plus WhatsApp
-Policy. Every action referenced already exists (`action_commercial_property`,
-`action_commercial_property_unit`, `action_commercial_tenant`,
-`action_commercial_property_lead`, `action_commercial_property_visit`,
-`action_commercial_property_reservation`,
-`action_commercial_property_application`,
-`action_commercial_property_integration_alert`, `action_commercial_lease`,
-`action_commercial_property_maintenance`,
-`action_commercial_property_maintenance_dashboard`,
-`action_commercial_property_handover`, `action_commercial_lease_penalty`,
-`action_commercial_lease_operations_dashboard`,
-`action_commercial_property_portfolio`,
-`action_commercial_property_distribution_channel`,
-`action_commercial_property_campaign_attribution`,
-`action_commercial_property_settings`) — this phase is a menu/view
-reorganization, not a new-feature phase.
-
-- [x] Add 5 new parent `ir.ui.menu` records under `menu_commercial_property_root`
-      (no action, just containers): Properties, Leasing, Operations, Analytics,
-      Configuration — new XML IDs (`menu_commercial_property_area`,
-      `menu_commercial_leasing`, `menu_commercial_operations`,
-      `menu_commercial_analytics`, `menu_commercial_configuration`).
-- [x] Re-parent every existing leaf menuitem under the matching new parent by
-      changing only its `parent`/`sequence` attributes; every existing `id`
-      and `action` kept unchanged.
-- [x] Rename labels — both the menuitem `name` and the underlying action's
-      `name` (breadcrumb/window title), so the two never disagree:
-      `menu_commercial_property_unit`/`action_commercial_property_unit`
-      "Commercial Units" → "Units"; `menu_commercial_property_visit`/
-      `action_commercial_property_visit` "Visits" → "Inspections";
-      `menu_commercial_property_application`/
-      `action_commercial_property_application` "Applications" → "Lease
-      Applications"; `menu_commercial_lease`/`action_commercial_lease`
-      "Lease Contracts" → "Leases". Also relabelled the matching "Commercial
-      Units" notebook tab on the building form to "Units" for consistency.
-- [x] Order the Leasing children by `sequence` to match the business flow:
-      Enquiries → Inspections → Reservations → Lease Applications → Tenants →
-      Leases (verified in the live DOM, not just the XML).
-- [x] Move Maintenance, Maintenance Dashboard, Delivery/Return Checklists and
-      Penalties under Operations.
-- [x] Move Portfolio Performance and Campaign Attribution under Analytics,
-      alongside the existing Operations Dashboard.
-- [x] Move Integration Alerts and WhatsApp Policy under Configuration; no
-      empty "Integrations" placeholder menu was added.
-- [x] Classified Distribution Channels (plain CRUD of channel master data,
-      no pivot/metrics) as Configuration, not Analytics — confirmed not
-      duplicated in both places.
-- [x] Added a `commercial.property.unit` form-view button box with
-      contextual actions driven by `state`, reusing existing lead/reservation
-      methods (`action_qualify`, `action_schedule_visit`,
-      `action_create_reservation_request`, `action_create_application`,
-      `action_cancel` on reservation) via new thin navigation-only methods
-      on the unit (`action_create_enquiry`, `action_schedule_inspection`,
-      `action_create_reservation`, `action_view_reservation`,
-      `action_cancel_reservation`, `action_create_lease_application`,
-      `action_view_lease`, `action_view_tenant`, `action_view_maintenance`):
-      - `available`: Create Enquiry, Schedule Inspection, Create Reservation.
-      - `reserved`: View Reservation, Create Lease Application, Cancel
-        Reservation.
-      - `rented`: View Lease, View Tenant, View Maintenance.
-      The whole button box is gated `groups="group_property_manager"` (the
-      only group with create/write on leads/visits/reservations/
-      applications), and each button is additionally gated on `state`.
-- [x] Added a non-destructive computed progress indicator,
-      `commercial_progress_stage` (Selection, computed, not stored), derived
-      from a new `lead_ids` One2many on the unit plus the existing
-      `current_lease_id`: has a lead → Enquiry; has a completed visit →
-      Inspection; has an approved reservation → Reservation; has an
-      application → Application; has an active lease → Lease. Rendered as a
-      second, non-clickable `statusbar` in the header, separate from the
-      existing `state` field, which is untouched and still drives
-      availability (available/reserved/rented/maintenance/inactive).
-- [x] Ran `npm run test:all` (module upgrade over the existing dev database)
-      repeatedly while iterating; final run: 93/93 Python tests and 27/27
-      Playwright e2e tests pass, including a from-scratch install in a
-      throwaway database. No XML ID collisions, no duplicate menus/actions.
-
-Done when: the top menu bar shows only Commercial Properties > {Properties,
-Leasing, Operations, Analytics, Configuration} — confirmed live, no
-standalone "Dashboard" leaf was added (see recommendation below); Leasing's
-children are ordered Enquiries → Inspections → Reservations → Lease
-Applications → Tenants → Leases; the four labels above are renamed
-everywhere (menu and breadcrumb); the `commercial.property.unit` form offers
-valid next-step actions per state; a non-destructive progress indicator is
-visible without changing `state`; and the module upgrades cleanly over the
-existing database with no duplicate menus/actions and no XML ID errors.
-
-### Follow-ups discovered while testing (not fixed — out of this phase's scope)
-
-- **Manually creating an enquiry through the web form (Enquiries "New", or
-  the new "Create Enquiry" button) cannot actually be saved.**
-  `commercial.property.lead.consent_at` is `required=True` and
-  `readonly=True` with no default, and the form never sets it, so the web
-  client blocks the save with "Invalid fields: Consent Given At". This is a
-  pre-existing gap from Phase 11 (WhatsApp leads set `consent_at`
-  server-side through the Hermes API controller, so the production channel
-  is unaffected), not something introduced by this phase — confirmed by
-  reproducing it with the original, unmodified Enquiries "New" flow too. It
-  only blocks the manager/back-office manual-entry path. Needs a product
-  decision (e.g. a manual-consent checkbox + timestamp default for
-  `source=manual` leads) before fixing.
-- **The dev database accumulates disposable `E2E %`-named fixtures across
-  test runs** (properties, units, leads, etc., with no teardown), which had
-  grown to 144 records and started breaking an unrelated pre-existing test
-  ("Kanban, filters, photos and notes to review inventory") once a filtered
-  list spilled past the first page. Cleaned up once during this phase; there
-  is still no automated teardown, so it will accumulate again over time.
-
-### Decisions taken during implementation (from the pre-implementation recommendations above)
-
-- No standalone root "Dashboard" leaf was added (option b) — zero new code,
-  no redundant action; both dashboards stay reachable from Analytics/Operations.
-- No separate "Settings" entry was added; "WhatsApp Policy" remains the only
-  settings action, avoiding a duplicate action behind two labels.
-- Integration Alerts and Distribution Channels were raised from
-  `group_property_manager` to `group_property_administrator` on both the
-  menuitem and the underlying action's `groups_id` (the menu `groups`
-  attribute alone does not block direct action access) — Configuration is
-  now administrator-only end to end, matching WhatsApp Policy.
-- Maintenance Dashboard was grouped under Operations, next to Maintenance.
-- New area-container XML IDs (`menu_commercial_property_area`,
-  `menu_commercial_leasing`, etc.) are distinct from the existing leaf IDs.
-- Contextual unit actions are thin `ir.actions.act_window`-returning methods
-  that delegate to the existing lead/reservation methods; no duplicated
-  business validation.
-
-
+# TODO — AI Job Hunter con Hermes + Odoo 16
+
+Proyecto: `job_hunter_management`
+
+Objetivo general: construir un sistema de búsqueda, análisis, seguimiento y aplicación asistida a trabajos usando Hermes como motor de automatización/IA y Odoo como sistema central de registro, pipeline, documentos y métricas.
+
+## Reglas globales del proyecto
+
+- Mantener `job_hunter_management` completamente independiente de `commercial_property_management`.
+- Flujo de trabajo obligatorio para tareas complejas: `Triage → TechLead → perfil(es) correspondiente(s) → QA → Done`.
+- TechLead debe dividir dependencias correctamente antes de ejecutar tareas paralelas.
+- No iniciar una fase si las dependencias técnicas de la fase anterior no están terminadas y validadas.
+- Si una tarea se bloquea, identificar la causa raíz y crear una tarea correctiva antes de reintentar.
+- No aplicar a ningún trabajo automáticamente sin una autorización explícita del usuario.
+- No guardar tokens, contraseñas, cookies ni secretos en código, logs o registros Odoo.
+- Registrar suficiente trazabilidad para poder auditar por qué una vacante fue aceptada, descartada o aplicada.
+- Mantener pruebas automáticas para lógica crítica e integraciones.
+
+---
+
+# FASE 1 — Base del módulo Odoo
+
+## Prompt
+
+```text
+Implementa la Fase 1 del proyecto AI Job Hunter.
+
+Crea un nuevo módulo Odoo 16 llamado `job_hunter_management`, completamente independiente de `commercial_property_management`.
+
+Objetivo:
+Crear la estructura base para almacenar y gestionar oportunidades laborales que posteriormente serán encontradas y procesadas por Hermes.
+
+Modelo principal:
+`job.application`
+
+Campos mínimos:
+- `name`: nombre del puesto
+- `company_name`: empresa
+- `location`: ubicación
+- `job_url`: URL de la vacante
+- `source`: SEEK / LinkedIn / Indeed / Jora / Company Careers / Other
+- `salary_min`
+- `salary_max`
+- `salary_currency`
+- `sponsorship_status`: Yes / No / Unknown
+- `match_score`: porcentaje 0-100
+- `state`: Found / Analysing / Good Match / Ready to Apply / Applied / Interview / Offer / Rejected / Ignored
+- `job_description`: descripción completa
+- `cv_file`: CV utilizado
+- `cover_letter`: cover letter
+- `date_found`
+- `date_applied`
+- `notes`
+
+Crear vistas:
+1. Kanban agrupado por `state`
+2. Lista
+3. Formulario
+4. Búsqueda y filtros
+
+Validaciones:
+- `match_score` debe estar entre 0 y 100.
+- Evitar duplicados por URL.
+- Como respaldo, detectar duplicados por empresa + puesto.
+- `date_applied` solo debe establecerse cuando corresponda a una aplicación real.
+
+Preparar el código para futuras integraciones mediante API.
+
+No implementar todavía:
+- scraping
+- APIs externas
+- IA
+- WhatsApp
+- CV tailoring
+- aplicación automática
+
+Flujo de ejecución:
+Triage → TechLead → Backend + Frontend → QA.
+
+TechLead debe comprobar dependencias antes de asignar tareas Frontend que necesiten campos Backend.
+
+Definition of Done:
+- módulo instala/actualiza sin errores
+- modelo y permisos funcionan
+- Kanban/list/form/search operativos
+- validaciones probadas
+- pruebas automáticas críticas pasan
+- no hay dependencias con `commercial_property_management`
+```
+
+---
+
+# FASE 2 — API segura Odoo ↔ Hermes
+
+## Prompt
+
+```text
+Implementa la Fase 2 de `job_hunter_management`: integración segura Odoo 16 ↔ Hermes mediante API HTTP.
+
+Objetivo:
+Permitir que Hermes cree, consulte y actualice oportunidades laborales almacenadas en `job.application`.
+
+Endpoints mínimos:
+
+1. POST `/api/job-hunter/jobs`
+- Crear oportunidad.
+- Validar campos obligatorios.
+- Evitar duplicados por URL y como respaldo empresa + puesto.
+- Devolver ID, estado y resultado.
+
+2. GET `/api/job-hunter/jobs`
+Permitir filtros por:
+- state
+- source
+- sponsorship_status
+- match_score mínimo
+- company_name
+- date_found
+
+3. GET `/api/job-hunter/jobs/<id>`
+- Obtener detalle completo.
+
+4. PATCH `/api/job-hunter/jobs/<id>`
+- Actualizar únicamente campos permitidos.
+- Registrar cambios importantes de estado.
+
+Seguridad:
+- Bearer Token.
+- Token desde configuración segura/variables de entorno.
+- Nunca hardcodear secretos.
+- Validación estricta de payloads.
+- No exponer información sensible.
+- JSON consistente.
+- Manejar HTTP 200, 201, 400, 401, 404, 409 y 500.
+
+Idempotencia:
+- Un reintento de Hermes no debe crear duplicados.
+- Admitir `external_id` o clave equivalente para identificar eventos repetidos.
+
+Añadir al modelo si todavía no existen:
+- `external_id`
+- `source_job_id`
+- `raw_job_data`
+- `last_sync_at`
+- `created_by_integration`
+
+Logging:
+- logs útiles para diagnóstico
+- nunca registrar tokens, cookies, CV completos u otros datos sensibles
+
+Pruebas automáticas:
+- autenticación
+- creación
+- duplicados
+- consulta
+- filtros
+- actualización
+- payload inválido
+- recurso inexistente
+- idempotencia
+
+No implementar todavía:
+- scraping
+- matching IA
+- sponsorship IA
+- WhatsApp
+- aplicación automática
+
+Flujo:
+Triage → TechLead → Backend → QA.
+
+Definition of Done:
+Demostrar mediante pruebas o curl que Hermes puede:
+1. enviar una vacante
+2. verla aparecer en Odoo
+3. consultarla
+4. actualizarla
+5. reenviar el mismo evento sin duplicarla
+```
+
+---
+
+# FASE 3 — Búsqueda automática y captura de vacantes
+
+## Prompt
+
+```text
+Implementa la Fase 3 del AI Job Hunter: búsqueda automática de oportunidades mediante Hermes y sincronización con Odoo.
+
+Objetivo:
+Hermes debe localizar oportunidades laborales relevantes, normalizarlas y enviarlas a `job_hunter_management` mediante la API creada en la Fase 2.
+
+Fuentes iniciales:
+- SEEK
+- LinkedIn Jobs
+- Indeed
+- Jora
+- páginas Careers de empresas
+
+Prioridad:
+Usar mecanismos permitidos y robustos para cada fuente. Evitar depender de scraping frágil si existe una API, feed, búsqueda web o mecanismo mejor.
+
+Datos mínimos por vacante:
+- job title
+- company
+- location
+- URL
+- source
+- source_job_id cuando exista
+- descripción
+- salario mínimo/máximo cuando esté disponible
+- moneda
+- fecha publicada cuando esté disponible
+- fecha encontrada
+- modalidad: onsite / hybrid / remote
+- raw_job_data normalizado o referencia equivalente
+
+Implementar normalización de datos entre fuentes.
+
+Deduplicación:
+1. source + source_job_id
+2. URL canónica
+3. empresa + título + ubicación como fallback
+
+Configuración de búsqueda:
+Preparar filtros configurables para:
+- keywords
+- roles
+- ubicación
+- remote/hybrid/onsite
+- salario mínimo
+- antigüedad máxima de publicación
+- fuentes habilitadas
+
+No aplicar a empleos.
+No generar todavía CVs ni cover letters.
+No descartar automáticamente trabajos por sponsorship en esta fase.
+
+Programación:
+Preparar el flujo para poder ejecutarse manualmente y mediante scheduler.
+
+Observabilidad:
+Registrar por ejecución:
+- fuente
+- vacantes encontradas
+- vacantes nuevas
+- duplicados
+- errores
+- tiempo de ejecución
+
+Errores de una fuente no deben cancelar el resto de fuentes.
+
+Flujo:
+Triage → TechLead → Integration/Backend → QA.
+
+Definition of Done:
+- ejecutar una búsqueda desde Hermes
+- encontrar oportunidades reales o fixtures de prueba equivalentes
+- normalizarlas
+- enviarlas a Odoo
+- evitar duplicados
+- soportar fallo parcial de una fuente
+- verificar que aparecen en estado `Found`
+```
+
+---
+
+# FASE 4 — Matching inteligente con CV y perfil
+
+## Prompt
+
+```text
+Implementa la Fase 4 del AI Job Hunter: cálculo de compatibilidad entre cada vacante y el perfil profesional/CV del candidato.
+
+Objetivo:
+Hermes debe analizar automáticamente cada nueva vacante y asignar un `match_score` de 0 a 100 junto con una explicación estructurada.
+
+Crear un perfil profesional reutilizable que pueda incluir:
+- skills
+- tecnologías
+- años de experiencia
+- experiencia laboral
+- educación
+- certificaciones
+- idiomas
+- roles objetivo
+- ubicación
+- preferencias remote/hybrid/onsite
+- salario objetivo
+
+El perfil debe poder alimentarse desde un CV principal y actualizarse sin modificar manualmente todos los jobs existentes.
+
+Criterios mínimos de scoring:
+- skills obligatorias
+- skills deseables
+- experiencia requerida
+- seniority
+- educación
+- tecnologías
+- ubicación/modalidad
+- idioma
+- compatibilidad general del rol
+
+No basar el resultado solo en similitud semántica.
+
+Guardar en Odoo:
+- `match_score`
+- fortalezas del candidato para la vacante
+- gaps principales
+- requisitos obligatorios no cumplidos
+- skills coincidentes
+- skills faltantes
+- breve explicación del score
+- versión del perfil/CV utilizado para el análisis
+
+Reglas de estado iniciales configurables:
+- score alto → `Good Match`
+- score intermedio → mantener `Analysing` o `Found`
+- score bajo → no eliminar; marcar como baja prioridad o `Ignored` solo si una regla explícita lo permite
+
+El cálculo debe ser determinista en sus criterios aunque utilice IA para interpretación de texto.
+
+No generar todavía documentos personalizados.
+No aplicar automáticamente.
+
+Optimización de tokens:
+- utilizar modelos económicos para clasificación rutinaria
+- reservar modelos más potentes para vacantes ambiguas o de alto potencial
+- reutilizar perfil estructurado en lugar de reenviar el CV completo cuando sea posible
+
+Pruebas:
+Crear fixtures con vacantes de match alto, medio y bajo y validar coherencia del scoring.
+
+Flujo:
+Triage → TechLead → AI/Backend → QA.
+
+Definition of Done:
+- toda vacante nueva puede analizarse
+- Odoo recibe score + explicación
+- los scores cumplen 0-100
+- casos de prueba alto/medio/bajo tienen resultados razonables
+- existe trazabilidad sobre cómo se obtuvo el score
+```
+
+---
+
+# FASE 5 — Detección y evaluación de visa sponsorship
+
+## Prompt
+
+```text
+Implementa la Fase 5 del AI Job Hunter: análisis de visa sponsorship para oportunidades en Australia.
+
+Objetivo:
+Clasificar cada vacante según la evidencia disponible sobre sponsorship, sin inventar información.
+
+Valores principales:
+- Yes
+- No
+- Unknown
+
+Añadir opcionalmente nivel de confianza 0-100.
+
+Analizar señales como:
+- `visa sponsorship available`
+- `482 sponsorship`
+- `employer sponsored`
+- `must have full working rights`
+- `Australian citizen or permanent resident only`
+- `no sponsorship available`
+- requisitos explícitos de work rights
+- información disponible de la empresa cuando sea pertinente
+
+Guardar:
+- sponsorship_status
+- sponsorship_confidence
+- evidencia textual resumida
+- origen de la evidencia
+- motivo de clasificación
+
+Reglas:
+- nunca convertir ausencia de información en `No`
+- si no existe evidencia suficiente, usar `Unknown`
+- evidencia explícita negativa debe prevalecer sobre inferencias débiles positivas
+- separar `visa sponsorship` de una simple exigencia de permiso de trabajo actual
+
+Prioridad:
+Permitir configurar el sistema para ordenar primero:
+1. Sponsorship Yes
+2. Sponsorship Unknown
+3. Sponsorship No
+
+No eliminar automáticamente registros `No`; mantener historial.
+
+Integración con matching:
+Crear un `priority_score` o criterio equivalente que combine match profesional y sponsorship sin alterar el significado de `match_score`.
+
+Ejemplo:
+Un job con 95% match pero sponsorship explícitamente No puede tener alta compatibilidad técnica pero baja prioridad de aplicación.
+
+No aplicar todavía.
+
+Flujo:
+Triage → TechLead → AI/Backend → QA.
+
+Definition of Done:
+- las vacantes pueden clasificarse Yes/No/Unknown
+- cada decisión tiene evidencia y confianza
+- ausencia de evidencia produce Unknown
+- Odoo permite filtrar y ordenar por sponsorship
+```
+
+---
+
+# FASE 6 — CV y cover letter personalizados
+
+## Prompt
+
+```text
+Implementa la Fase 6 del AI Job Hunter: generación controlada de CV y cover letter adaptados a cada vacante.
+
+Objetivo:
+Para oportunidades priorizadas, Hermes debe crear una versión del CV y una cover letter adaptadas al puesto sin inventar experiencia, skills, empleadores, títulos, certificaciones o logros.
+
+Fuente de verdad:
+- CV maestro
+- perfil profesional estructurado
+- información aprobada previamente por el usuario
+
+CV personalizado:
+- priorizar experiencia relevante
+- ajustar resumen profesional
+- reordenar skills según relevancia
+- destacar proyectos relacionados
+- usar keywords legítimas del anuncio
+- conservar hechos y fechas reales
+- mantener formato ATS-friendly
+
+Cover letter:
+- específica para puesto y empresa
+- breve y profesional
+- explicar fit real
+- mencionar sponsorship/work rights únicamente mediante datos configurados y autorizados
+- no incluir afirmaciones no verificadas
+
+Guardar en Odoo por aplicación:
+- versión del CV
+- cover letter
+- fecha de generación
+- modelo/prompts/versiones utilizados
+- job relacionado
+- estado de revisión
+
+Estados sugeridos para documentos:
+- Draft
+- Reviewed
+- Approved
+
+Añadir mecanismo de diff o resumen de cambios entre CV maestro y CV adaptado.
+
+Nunca sobrescribir el CV maestro.
+
+Validaciones automáticas:
+Detectar posibles alucinaciones comparando el documento generado contra el perfil fuente.
+Si aparece un dato profesional no presente en la fuente de verdad, bloquear el documento para revisión.
+
+Formato:
+Preparar documentos para exportación a PDF/DOCX si esa infraestructura ya existe o implementarla modularmente sin romper el flujo principal.
+
+No enviar aplicaciones todavía.
+
+Optimización:
+Solo generar documentos para vacantes que superen criterios configurables de prioridad.
+
+Flujo:
+Triage → TechLead → AI/Backend → QA.
+
+Definition of Done:
+- una vacante priorizada genera CV adaptado + cover letter
+- no se altera el CV maestro
+- existe revisión/approval
+- no se permiten hechos inventados
+- documentos quedan asociados a la vacante correcta en Odoo
+```
+
+---
+
+# FASE 7 — Aprobación y control por WhatsApp
+
+## Prompt
+
+```text
+Implementa la Fase 7 del AI Job Hunter: notificaciones y aprobación de oportunidades mediante WhatsApp.
+
+Objetivo:
+Hermes debe enviar al número autorizado únicamente oportunidades que cumplan los criterios configurados y permitir controlarlas mediante respuestas simples.
+
+Mensaje resumido sugerido:
+- puesto
+- empresa
+- ubicación
+- salary si existe
+- match_score
+- sponsorship_status
+- fuente
+- enlace
+- breve motivo de recomendación
+
+Comandos mínimos:
+- APPROVE
+- IGNORE
+- DETAILS
+- CV
+
+Comportamiento:
+APPROVE:
+- registrar aprobación explícita
+- cambiar a `Ready to Apply`
+- dejar disponible para Fase 8
+- NO aplicar todavía si la Fase 8 no está habilitada
+
+IGNORE:
+- cambiar a `Ignored`
+- registrar fecha y motivo si el usuario lo proporciona
+
+DETAILS:
+- enviar resumen extendido de la vacante, requisitos, match y sponsorship
+
+CV:
+- proporcionar o identificar la versión de CV preparada para esa vacante
+
+Seguridad:
+- aceptar comandos únicamente desde números autorizados
+- validar que la respuesta corresponda a una vacante concreta
+- no confiar únicamente en texto libre sin contexto
+- prevenir replay/doble aprobación
+- nunca exponer secretos técnicos
+
+Identificación:
+Cada notificación debe incluir un identificador corto o mecanismo inequívoco para relacionar la respuesta con `job.application`.
+
+Idempotencia:
+Responder APPROVE dos veces no debe crear dos solicitudes ni dos eventos de aplicación.
+
+Notificaciones adicionales:
+- avisar cuando una tarea crítica se bloquee
+- avisar cuando se complete una aplicación
+- evitar spam agrupando eventos rutinarios cuando sea razonable
+
+Modelo:
+El chat de WhatsApp debe utilizar el perfil/modelo gratuito configurado para WhatsApp según la política global de Hermes.
+
+Flujo:
+Triage → TechLead → WhatsApp/Integration + Backend → QA.
+
+Definition of Done:
+- una vacante priorizada genera notificación
+- APPROVE/IGNORE/DETAILS/CV funcionan
+- solo números autorizados pueden operar
+- cada acción queda auditada en Odoo
+- no se realizan aplicaciones sin APPROVE
+```
+
+---
+
+# FASE 8 — Aplicación asistida/automática con aprobación obligatoria
+
+## Prompt
+
+```text
+Implementa la Fase 8 del AI Job Hunter: aplicación asistida a oportunidades aprobadas explícitamente por el usuario.
+
+Objetivo:
+Hermes debe poder iniciar y completar, cuando sea técnicamente viable y permitido, el proceso de aplicación para registros en estado `Ready to Apply` que tengan una aprobación válida.
+
+REGLA ABSOLUTA:
+Nunca iniciar ni enviar una aplicación si no existe una aprobación explícita y vigente asociada a esa vacante.
+
+Precondiciones:
+- estado `Ready to Apply`
+- aprobación registrada
+- CV aprobado
+- cover letter aprobada si es necesaria
+- URL válida
+- no existir aplicación previa confirmada
+
+Automatización:
+Usar navegación/browser automation cuando corresponda.
+
+Flujo recomendado:
+1. abrir página de aplicación
+2. identificar plataforma/formulario
+3. completar datos conocidos
+4. adjuntar CV correcto
+5. adjuntar cover letter si aplica
+6. detectar preguntas nuevas
+7. responder automáticamente solo cuando exista una respuesta previamente autorizada y segura
+8. si aparece una pregunta desconocida o sensible, pausar y solicitar respuesta al usuario
+9. revisar resumen antes del envío cuando sea posible
+10. enviar únicamente si las reglas configuradas permiten submission automático después del APPROVE
+11. registrar confirmación
+
+Preguntas que deben escalarse al usuario si no existe respuesta aprobada:
+- expectativa salarial no configurada
+- razones personales de salida
+- antecedentes o declaraciones legales
+- discapacidad/salud
+- diversidad/EEO opcional
+- información migratoria no configurada
+- security clearance
+- preguntas subjetivas importantes
+
+Nunca inventar respuestas.
+
+Compatibilidad:
+Diseñar adaptadores por plataforma, por ejemplo:
+- SEEK
+- LinkedIn
+- Indeed
+- Workday
+- Greenhouse
+- Lever
+- formularios propios
+
+No asumir que todas las plataformas permiten automatización completa.
+Si una aplicación no puede enviarse de manera confiable:
+- dejarla preparada hasta el último paso posible
+- marcar `Manual Action Required`
+- notificar al usuario
+
+Registrar en Odoo:
+- plataforma
+- fecha/hora de intento
+- fecha/hora de envío
+- resultado
+- confirmation/reference id cuando exista
+- CV usado
+- cover letter usada
+- respuestas relevantes
+- screenshots/logs técnicos no sensibles cuando sean útiles
+- error si falla
+
+Estados sugeridos adicionales:
+- Applying
+- Manual Action Required
+- Applied
+- Application Failed
+
+Idempotencia:
+Nunca enviar dos veces la misma aplicación por reintentos.
+
+Reintentos:
+- fallos técnicos transitorios pueden reintentarse
+- nunca repetir automáticamente un submission si existe posibilidad razonable de que el primer envío haya sido exitoso
+- verificar estado antes de reintentar
+
+Post-aplicación:
+- actualizar Odoo a `Applied`
+- establecer `date_applied`
+- enviar notificación WhatsApp
+- crear seguimiento futuro si la arquitectura de tareas lo permite
+
+Flujo:
+Triage → TechLead → Browser/Integration + Backend → QA.
+
+Definition of Done:
+- solo aplicaciones aprobadas pueden avanzar
+- una aplicación de prueba puede completarse o llegar correctamente a Manual Action Required
+- no hay duplicados
+- resultados quedan registrados en Odoo
+- errores son recuperables y auditables
+```
+
+---
+
+# Checklist final del proyecto
+
+- [x] Fase 1 — Base Odoo
+- [ ] Fase 2 — API Odoo ↔ Hermes
+- [ ] Fase 3 — Búsqueda automática
+- [ ] Fase 4 — Matching con CV
+- [ ] Fase 5 — Sponsorship
+- [ ] Fase 6 — CV + Cover Letter
+- [ ] Fase 7 — WhatsApp Approval
+- [ ] Fase 8 — Aplicación asistida/automática
+
+## Flujo final esperado
+
+```text
+Fuentes de empleo
+      ↓
+    Hermes
+      ↓
+Normalización + deduplicación
+      ↓
+     Odoo
+      ↓
+Matching profesional
+      ↓
+Sponsorship analysis
+      ↓
+Priority score
+      ↓
+CV + Cover Letter
+      ↓
+WhatsApp
+      ↓
+APPROVE / IGNORE / DETAILS / CV
+      ↓
+Aplicación asistida
+      ↓
+Odoo: Applied / Interview / Offer / Rejected
+```
+
+## Regla de oro
+
+```text
+Encontrar y analizar puede ser automático.
+Preparar documentos puede ser automático.
+La decisión de aplicar pertenece al usuario.
+Nunca enviar una candidatura sin aprobación explícita.
+```

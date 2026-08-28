@@ -80,7 +80,7 @@
         <field name="arch" type="xml">
             <form string="Job Application">
                 <header>
-                    <field name="state" widget="statusbar"/>
+                    <field name="state" widget="statusbar" options="{'clickable': true}"/>
                 </header>
                 <sheet>
                     <div class="oe_title">
@@ -144,6 +144,7 @@
                 <filter name="state_interview" string="Interview" domain="[('state', '=', 'interview')]"/>
                 <filter name="state_offer" string="Offer" domain="[('state', '=', 'offer')]"/>
                 <filter name="state_rejected" string="Rejected" domain="[('state', '=', 'rejected')]"/>
+                <filter name="state_ignored" string="Ignored" domain="[('state', '=', 'ignored')]"/>
                 <separator/>
                 <filter name="sponsorship_yes" string="Sponsorship: Yes" domain="[('sponsorship_status', '=', 'yes')]"/>
                 <filter name="sponsorship_no" string="Sponsorship: No" domain="[('sponsorship_status', '=', 'no')]"/>
