@@ -1,3 +1,5 @@
+import base64
+
 from odoo import fields
 from odoo.exceptions import AccessError, ValidationError
 from odoo.tests.common import TransactionCase
@@ -21,6 +23,24 @@ class TestJobApplication(TransactionCase):
         self.assertEqual(application.date_found, fields.Date.context_today(application))
         self.assertEqual(application.sponsorship_status, "unknown")
         self.assertEqual(application.source, "other")
+
+    def test_api_fields_and_serializer_exclude_sensitive_fields(self):
+        application = self.env["job.application"].create(
+            self._values(
+                external_id="external-test",
+                source_job_id="source-test",
+                raw_job_data={"private": "source payload"},
+                cv_file=base64.b64encode(b"not returned"),
+                cover_letter="not returned",
+                notes="not returned",
+                created_by_integration=True,
+            )
+        )
+        data = application.get_api_data()
+        self.assertEqual(data["external_id"], "external-test")
+        self.assertTrue(data["created_by_integration"])
+        for private_field in ("cv_file", "cover_letter", "notes", "raw_job_data"):
+            self.assertNotIn(private_field, data)
 
     def test_match_score_rejects_invalid_create_and_write(self):
         with self.assertRaises(ValidationError), self.env.cr.savepoint():

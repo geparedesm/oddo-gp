@@ -1,5 +1,10 @@
+import logging
+
 from odoo import _, api, fields, models
 from odoo.exceptions import ValidationError
+
+
+_logger = logging.getLogger(__name__)
 
 
 class JobApplication(models.Model):
@@ -55,8 +60,18 @@ class JobApplication(models.Model):
     date_found = fields.Date(string="Date Found", required=True, default=fields.Date.context_today)
     date_applied = fields.Date(string="Date Applied")
     notes = fields.Text()
+    external_id = fields.Char(string="External ID", index=True)
+    source_job_id = fields.Char(string="Source Job ID", index=True)
+    raw_job_data = fields.Json(string="Raw Job Data")
+    last_sync_at = fields.Datetime(string="Last Sync At")
+    created_by_integration = fields.Boolean(string="Created by Integration", default=False, index=True)
 
     _sql_constraints = [
+        (
+            "job_application_external_id_unique",
+            "unique(external_id)",
+            "An application with this external ID already exists.",
+        ),
         (
             "job_application_url_unique",
             "unique(job_url)",
@@ -113,6 +128,11 @@ class JobApplication(models.Model):
         return super().create(values_list)
 
     def write(self, values):
+        changed_states = {
+            application.id: (application.state, values["state"])
+            for application in self
+            if "state" in values and values["state"] != application.state
+        }
         effective_values = {
             application.id: {
                 "job_url": values.get("job_url", application.job_url),
@@ -139,7 +159,60 @@ class JobApplication(models.Model):
                 )
             seen_urls.add(job_url)
             seen_company_positions.add(company_position)
-        return super().write(values)
+        result = super().write(values)
+        for application_id, (old_state, new_state) in changed_states.items():
+            _logger.info(
+                "Job application %s state changed from %s to %s",
+                application_id,
+                old_state,
+                new_state,
+            )
+        return result
+
+    def get_api_data(self):
+        """Return the intentionally public integration projection."""
+        self.ensure_one()
+        return {
+            "id": self.id,
+            "external_id": self.external_id or None,
+            "source_job_id": self.source_job_id or None,
+            "name": self.name,
+            "company_name": self.company_name,
+            "location": self.location or None,
+            "job_url": self.job_url,
+            "source": self.source,
+            "salary_min": self.salary_min,
+            "salary_max": self.salary_max,
+            "salary_currency": self.salary_currency or None,
+            "sponsorship_status": self.sponsorship_status,
+            "match_score": self.match_score,
+            "state": self.state,
+            "job_description": self.job_description or None,
+            "date_found": fields.Date.to_string(self.date_found) if self.date_found else None,
+            "date_applied": fields.Date.to_string(self.date_applied) if self.date_applied else None,
+            "last_sync_at": fields.Datetime.to_string(self.last_sync_at) if self.last_sync_at else None,
+            "created_by_integration": bool(self.created_by_integration),
+        }
+
+    @api.constrains("external_id")
+    def _check_external_id(self):
+        for application in self:
+            if application.external_id and not application.external_id.strip():
+                raise ValidationError(_("External ID cannot be empty or contain only spaces."))
+
+    @api.constrains("source_job_id")
+    def _check_source_job_id(self):
+        for application in self:
+            if application.source_job_id and not application.source_job_id.strip():
+                raise ValidationError(_("Source Job ID cannot be empty or contain only spaces."))
+
+    @api.constrains("external_id", "source_job_id")
+    def _check_integration_lengths(self):
+        for application in self:
+            if application.external_id and len(application.external_id) > 128:
+                raise ValidationError(_("External ID cannot exceed 128 characters."))
+            if application.source_job_id and len(application.source_job_id) > 128:
+                raise ValidationError(_("Source Job ID cannot exceed 128 characters."))
 
     @api.constrains("name", "company_name", "job_url")
     def _check_required_text(self):
