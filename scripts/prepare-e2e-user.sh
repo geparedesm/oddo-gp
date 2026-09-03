@@ -31,7 +31,6 @@ import os
 login = os.environ["E2E_PROPERTY_USER"]
 password = os.environ["E2E_PROPERTY_USER_PASSWORD"]
 property_user_group = env.ref("commercial_property_management.group_property_user")
-e2e_cleanup_group = env.ref("job_hunter_management.group_job_hunter_e2e_cleanup")
 internal_user_group = env.ref("base.group_user")
 
 user = env["res.users"].sudo().search([("login", "=", login)], limit=1)
@@ -42,7 +41,7 @@ values = {
     "password": password,
     "company_id": env.company.id,
     "company_ids": [(6, 0, env.company.ids)],
-    "groups_id": [(6, 0, [internal_user_group.id, property_user_group.id, e2e_cleanup_group.id])],
+    "groups_id": [(6, 0, [internal_user_group.id, property_user_group.id])],
 }
 
 if user:
@@ -55,7 +54,7 @@ login_user = env["res.users"].sudo().search(
 )
 if login_user and login_user.id != user.id:
     login_user.write({
-        "groups_id": [(4, internal_user_group.id), (4, property_user_group.id), (4, e2e_cleanup_group.id)],
+        "groups_id": [(4, internal_user_group.id), (4, property_user_group.id)],
     })
 
 env.cr.commit()

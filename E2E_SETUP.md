@@ -110,11 +110,10 @@ cat scripts/cleanup-e2e-records.sh | grep -A 5 "is_e2e_record"
 ```
 
 La limpieza debe ejecutarse siempre al finalizar la suite y debe abarcar todos
-los modelos tocados por E2E, incluidos módulos auxiliares como `job_hunter`.
-No se debe considerar completada una ejecución mientras existan registros
-creados por las pruebas. Si el runner se automatiza, la limpieza debe estar en
-un bloque `finally` o un `trap` para cubrir ejecuciones con error o
-interrupción.
+los modelos tocados por E2E. No se debe considerar completada una ejecución
+mientras existan registros creados por las pruebas. Si el runner se automatiza,
+la limpieza debe estar en un bloque `finally` o un `trap` para cubrir
+ejecuciones con error o interrupción.
 
 ## 🔍 Verificación Técnica
 
