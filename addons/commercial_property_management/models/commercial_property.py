@@ -159,7 +159,7 @@ class CommercialProperty(models.Model):
     def write(self, vals):
         result = super().write(vals)
         unit_fields = {
-            "monthly_rent", "available_date", "image_1920", "notes",
+            "area", "monthly_rent", "available_date", "image_1920", "notes",
             "public_name", "public_description", "public_monthly_rent",
             "public_feature_ids", "is_published",
         }

@@ -193,10 +193,16 @@ class JobWhatsAppCommand(models.Model):
             return {"accepted": False, "code": "job_not_found"}
 
         if raw_command == "APPROVE":
+            if notification.delivery_state != "delivered":
+                self._audit(payload, result="rejected", code="notification_not_delivered", notification=notification, command="approve")
+                return {"accepted": False, "code": "notification_not_delivered"}
             approval = self.env["job.application.approval"].sudo().search([("application_id", "=", job.id)], limit=1)
             if approval:
                 self._audit(payload, result="idempotent", code="already_approved", notification=notification, command="approve")
                 return {"accepted": True, "idempotent": True, "code": "already_approved"}
+            if job.state not in {"found", "analysing", "good_match"}:
+                self._audit(payload, result="rejected", code="job_not_eligible", notification=notification, command="approve")
+                return {"accepted": False, "code": "job_not_eligible"}
             audit = self._audit(payload, result="accepted", code="approved", notification=notification, command="approve")
             approval = self.env["job.application.approval"].sudo().create({
                 "application_id": job.id, "notification_id": notification.id,

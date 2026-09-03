@@ -124,6 +124,7 @@ class TestJobWhatsAppApproval(TransactionCase):
     def test_approve_is_explicit_current_and_idempotent_without_applying(self):
         job = self._job("approve")
         notification = self._notify(job)
+        notification.mark_delivered("test-provider-message-%s" % notification.id)
         first = self._command(notification, "APPROVE", "evt-approve-1")
         replay = self._command(notification, "APPROVE", "evt-approve-1")
         repeated = self._command(notification, "APPROVE", "evt-approve-2")
@@ -139,6 +140,19 @@ class TestJobWhatsAppApproval(TransactionCase):
         self.assertEqual(self.env["job.whatsapp.command"].search_count([
             ("application_id", "=", job.id), ("command", "=", "approve"), ("result", "=", "accepted")
         ]), 1)
+
+    def test_approve_rejects_undelivered_or_ineligible_stale_notifications(self):
+        job = self._job("stale")
+        notification = job.action_queue_whatsapp_notification()
+        pending_result = self._command(notification, "APPROVE", "evt-stale-pending")
+        self.assertFalse(pending_result["accepted"])
+        self.assertEqual(pending_result["code"], "notification_not_delivered")
+        notification.mark_delivered("provider-stale")
+        job.write({"state": "ignored"})
+        ineligible_result = self._command(notification, "APPROVE", "evt-stale-ineligible")
+        self.assertFalse(ineligible_result["accepted"])
+        self.assertEqual(ineligible_result["code"], "job_not_eligible")
+        self.assertFalse(self.env["job.application.approval"].search([("application_id", "=", job.id)]))
 
     def test_ignore_records_optional_reason(self):
         job = self._job("ignore")

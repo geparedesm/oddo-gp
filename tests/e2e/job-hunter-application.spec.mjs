@@ -64,6 +64,11 @@ test("approved job preparation stops at manual action required without submissio
     [notificationId] = await rpc(page, "job.whatsapp.notification", "search", [[
       ["application_id", "=", jobId], ["kind", "=", "opportunity"]
     ]], { limit: 1 });
+    const deliveryResponse = await page.request.patch(`/api/job-hunter/whatsapp/outbox/${notificationId}`, {
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      data: { state: "delivered", provider_message_id: `phase8-provider-${Date.now()}` }
+    });
+    expect(deliveryResponse.ok()).toBeTruthy();
     const [notification] = await rpc(page, "job.whatsapp.notification", "read", [[notificationId], ["short_ref", "job_ref"]]);
     const approvalResponse = await page.request.post("/api/job-hunter/whatsapp/commands", {
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
