@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<odoo noupdate="1">
-    <record id="document_generation_rule_default" model="job.document.generation.rule">
-        <field name="name">Default document priority threshold</field>
-        <field name="minimum_priority_score">75</field>
-    </record>
-</odoo>
