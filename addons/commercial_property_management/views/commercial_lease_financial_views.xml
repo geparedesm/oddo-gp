@@ -22,6 +22,9 @@
                     <field name="renewed_from_id" readonly="1" attrs="{'invisible': [('renewed_from_id', '=', False)]}"/>
                     <field name="renewal_ids" readonly="1" widget="many2many_tags" attrs="{'invisible': [('renewal_ids', '=', False)]}"/>
                 </group>
+                <group string="Payments">
+                    <field name="total_paid_amount" widget="monetary" readonly="1"/>
+                </group>
             </xpath>
             <xpath expr="//div[hasclass('oe_chatter')]" position="before">
                 <notebook>
@@ -49,6 +52,20 @@
                                 <field name="state" widget="badge"/>
                                 <button name="action_mark_collected" type="object" string="Collect" attrs="{'invisible': [('state', '!=', 'pending')]}"/>
                                 <button name="action_waive" type="object" string="Waive" attrs="{'invisible': [('state', '!=', 'pending')]}"/>
+                            </tree>
+                        </field>
+                    </page>
+                    <page string="Rent Payments">
+                        <field name="payment_ids" context="{'default_lease_id': active_id}">
+                            <tree editable="bottom" decoration-muted="state == 'confirmed'">
+                                <field name="payment_date"/>
+                                <field name="amount" widget="monetary"/>
+                                <field name="currency_id" invisible="1"/>
+                                <field name="method"/>
+                                <field name="reference"/>
+                                <field name="notes"/>
+                                <field name="state" widget="badge"/>
+                                <button name="action_confirm" type="object" string="Confirm" attrs="{'invisible': [('state', '!=', 'draft')]}"/>
                             </tree>
                         </field>
                     </page>
@@ -132,6 +149,86 @@
         <field name="arch" type="xml">
             <pivot string="Delinquency">
                 <field name="reason" type="row"/>
+                <field name="state" type="col"/>
+                <field name="amount" type="measure"/>
+            </pivot>
+        </field>
+    </record>
+
+    <record id="view_commercial_lease_rent_payment_tree" model="ir.ui.view">
+        <field name="name">commercial.lease.rent.payment.tree</field>
+        <field name="model">commercial.lease.rent.payment</field>
+        <field name="arch" type="xml">
+            <tree decoration-muted="state == 'confirmed'">
+                <field name="lease_id"/>
+                <field name="property_id"/>
+                <field name="unit_id"/>
+                <field name="payment_date"/>
+                <field name="method"/>
+                <field name="amount" widget="monetary"/>
+                <field name="currency_id" invisible="1"/>
+                <field name="state" widget="badge"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_commercial_lease_rent_payment_form" model="ir.ui.view">
+        <field name="name">commercial.lease.rent.payment.form</field>
+        <field name="model">commercial.lease.rent.payment</field>
+        <field name="arch" type="xml">
+            <form string="Rent Payment">
+                <header>
+                    <button name="action_confirm" type="object" string="Confirm" class="btn-primary" attrs="{'invisible': [('state', '!=', 'draft')]}"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,confirmed"/>
+                </header>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="lease_id" options="{'no_create': True}"/>
+                            <field name="property_id" readonly="1"/>
+                            <field name="unit_id" readonly="1"/>
+                        </group>
+                        <group>
+                            <field name="payment_date"/>
+                            <field name="method"/>
+                            <field name="reference"/>
+                            <field name="amount" widget="monetary"/>
+                            <field name="currency_id" invisible="1"/>
+                        </group>
+                    </group>
+                    <group>
+                        <field name="notes"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_commercial_lease_rent_payment_search" model="ir.ui.view">
+        <field name="name">commercial.lease.rent.payment.search</field>
+        <field name="model">commercial.lease.rent.payment</field>
+        <field name="arch" type="xml">
+            <search string="Search Rent Payments">
+                <field name="lease_id"/>
+                <field name="property_id"/>
+                <field name="unit_id"/>
+                <filter name="draft" string="Draft" domain="[('state', '=', 'draft')]"/>
+                <filter name="confirmed" string="Confirmed" domain="[('state', '=', 'confirmed')]"/>
+                <group expand="0" string="Group By">
+                    <filter name="group_by_state" string="Status" context="{'group_by': 'state'}"/>
+                    <filter name="group_by_method" string="Method" context="{'group_by': 'method'}"/>
+                    <filter name="group_by_property" string="Building" context="{'group_by': 'property_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="view_commercial_lease_rent_payment_pivot" model="ir.ui.view">
+        <field name="name">commercial.lease.rent.payment.pivot</field>
+        <field name="model">commercial.lease.rent.payment</field>
+        <field name="arch" type="xml">
+            <pivot string="Rent Collection">
+                <field name="method" type="row"/>
                 <field name="state" type="col"/>
                 <field name="amount" type="measure"/>
             </pivot>

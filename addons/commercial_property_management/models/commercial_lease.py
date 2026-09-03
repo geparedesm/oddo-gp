@@ -31,6 +31,8 @@ class CommercialLease(models.Model):
     rent_adjustment_ids = fields.One2many("commercial.lease.rent.adjustment", "lease_id", string="Rent Adjustments", copy=False)
     penalty_ids = fields.One2many("commercial.lease.penalty", "lease_id", string="Penalties", copy=False)
     pending_penalty_amount = fields.Monetary(compute="_compute_pending_penalty_amount", groups="commercial_property_management.group_property_manager")
+    payment_ids = fields.One2many("commercial.lease.rent.payment", "lease_id", string="Rent Payments", copy=False)
+    total_paid_amount = fields.Monetary(compute="_compute_total_paid_amount", groups="commercial_property_management.group_property_manager")
     renewed_from_id = fields.Many2one("commercial.lease", string="Renewed From", readonly=True, copy=False, ondelete="set null", index=True)
     renewal_ids = fields.One2many("commercial.lease", "renewed_from_id", string="Renewals", copy=False)
     is_renewal = fields.Boolean(compute="_compute_is_renewal", store=True)
@@ -100,6 +102,11 @@ class CommercialLease(models.Model):
     def _compute_pending_penalty_amount(self):
         for lease in self:
             lease.pending_penalty_amount = sum(lease.penalty_ids.filtered(lambda penalty: penalty.state == "pending").mapped("amount"))
+
+    @api.depends("payment_ids.amount", "payment_ids.state")
+    def _compute_total_paid_amount(self):
+        for lease in self:
+            lease.total_paid_amount = sum(lease.payment_ids.filtered(lambda payment: payment.state == "confirmed").mapped("amount"))
 
     @api.depends("renewed_from_id")
     def _compute_is_renewal(self):
@@ -307,3 +314,40 @@ class CommercialLeasePenalty(models.Model):
         if any(penalty.state != "pending" for penalty in self):
             raise ValidationError(_("Only a pending penalty can be waived."))
         self.write({"state": "waived"})
+
+
+class CommercialLeaseRentPayment(models.Model):
+    _name = "commercial.lease.rent.payment"
+    _description = "Commercial Lease Rent Payment"
+    _order = "payment_date desc, id desc"
+
+    lease_id = fields.Many2one("commercial.lease", required=True, ondelete="cascade", index=True)
+    payment_date = fields.Date(required=True, default=fields.Date.context_today)
+    amount = fields.Monetary(required=True)
+    method = fields.Selection(
+        [("cash", "Cash"), ("transfer", "Bank Transfer"), ("check", "Check"), ("other", "Other")],
+        default="transfer", required=True,
+    )
+    reference = fields.Char()
+    notes = fields.Text()
+    state = fields.Selection([("draft", "Draft"), ("confirmed", "Confirmed")], default="draft", required=True)
+    currency_id = fields.Many2one(related="lease_id.currency_id", store=True, readonly=True)
+    property_id = fields.Many2one(related="lease_id.property_id", store=True, readonly=True, index=True)
+    unit_id = fields.Many2one(related="lease_id.unit_id", store=True, readonly=True, index=True)
+    company_id = fields.Many2one(related="lease_id.company_id", store=True, readonly=True, index=True)
+
+    @api.constrains("amount")
+    def _check_amount(self):
+        for payment in self:
+            if payment.amount <= 0:
+                raise ValidationError(_("A rent payment amount must be greater than zero."))
+
+    def action_confirm(self):
+        if any(payment.state != "draft" for payment in self):
+            raise ValidationError(_("Only a draft payment can be confirmed."))
+        for payment in self:
+            payment.lease_id.message_post(
+                body=_("Rent payment of %(amount)s received on %(date)s.")
+                % {"amount": payment.amount, "date": payment.payment_date}
+            )
+        self.write({"state": "confirmed"})

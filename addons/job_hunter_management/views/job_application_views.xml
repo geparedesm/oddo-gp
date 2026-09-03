@@ -11,6 +11,7 @@
                 <field name="source"/>
                 <field name="sponsorship_status"/>
                 <field name="match_score"/>
+                <field name="priority_score"/>
                 <field name="state"/>
                 <field name="date_found"/>
                 <templates>
@@ -40,6 +41,7 @@
                                     <span>Sponsorship: </span>
                                     <field name="sponsorship_status"/>
                                 </div>
+                                <div><span>Priority: </span><field name="priority_score"/></div>
                             </div>
                             <div class="o_kanban_record_bottom mt-2">
                                 <div class="oe_kanban_bottom_left">
@@ -60,13 +62,16 @@
         <field name="name">job.application.tree</field>
         <field name="model">job.application</field>
         <field name="arch" type="xml">
-            <tree string="Job Applications" default_order="date_found desc, id desc">
+            <tree string="Job Applications" default_order="sponsorship_rank desc, priority_score desc, date_found desc">
                 <field name="name"/>
                 <field name="company_name"/>
                 <field name="location" optional="show"/>
                 <field name="source" optional="show"/>
                 <field name="sponsorship_status" optional="show"/>
                 <field name="match_score" optional="show"/>
+                <field name="priority_score" optional="show"/>
+                <field name="sponsorship_confidence" optional="hide"/>
+                <field name="sponsorship_rank" invisible="1"/>
                 <field name="state"/>
                 <field name="date_found" optional="show"/>
                 <field name="date_applied" optional="show"/>
@@ -80,7 +85,10 @@
         <field name="arch" type="xml">
             <form string="Job Application">
                 <header>
-                    <field name="state" widget="statusbar" options="{'clickable': true}"/>
+                    <button name="action_analyze_match" type="object" string="Analyse Match" class="oe_highlight"/>
+                    <button name="action_analyze_sponsorship" type="object" string="Analyse Sponsorship"/>
+                    <button name="action_generate_documents" type="object" string="Generate Tailored Documents"/>
+                    <field name="state" widget="statusbar" options="{'clickable': false}"/>
                 </header>
                 <sheet>
                     <div class="oe_title">
@@ -97,9 +105,11 @@
                             <field name="job_url" widget="url"/>
                             <field name="source"/>
                             <field name="sponsorship_status"/>
+                            <field name="sponsorship_confidence"/>
                         </group>
                         <group>
                             <field name="match_score"/>
+                            <field name="priority_score"/>
                             <field name="date_found"/>
                             <field name="date_applied"/>
                             <field name="salary_min"/>
@@ -111,7 +121,58 @@
                         <page string="Job Description" name="job_description">
                             <field name="job_description" placeholder="Paste the job description here..."/>
                         </page>
+                        <page string="Matching" name="matching">
+                            <group string="Explicit Requirements">
+                                <group><field name="mandatory_skills"/><field name="desired_skills"/><field name="required_technologies"/><field name="required_languages"/></group>
+                                <group><field name="required_years_experience"/><field name="required_seniority"/><field name="required_education"/><field name="target_role"/></group>
+                            </group>
+                            <group string="Latest Analysis">
+                                <group><field name="match_profile_id"/><field name="match_profile_version"/><field name="match_cv_filename"/><field name="match_cv_checksum"/><field name="last_match_at"/><field name="manual_state_locked"/></group>
+                                <group><field name="matched_skills"/><field name="missing_skills"/><field name="missing_mandatory_requirements"/></group>
+                            </group>
+                            <group><field name="match_strengths"/><field name="match_gaps"/></group>
+                            <field name="match_explanation"/>
+                            <field name="match_analysis_ids" readonly="1">
+                                <tree><field name="analyzed_at"/><field name="score"/><field name="profile_version"/><field name="state_before"/><field name="state_after"/><field name="analyzed_by"/></tree>
+                            </field>
+                        </page>
+                        <page string="Sponsorship" name="sponsorship">
+                            <group string="Latest deterministic analysis">
+                                <group>
+                                    <field name="sponsorship_status"/>
+                                    <field name="sponsorship_confidence"/>
+                                    <field name="priority_score"/>
+                                    <field name="sponsorship_priority_adjustment"/>
+                                </group>
+                                <group>
+                                    <field name="sponsorship_rule_id"/>
+                                    <field name="sponsorship_evidence_source"/>
+                                    <field name="sponsorship_analyzed_at"/>
+                                </group>
+                            </group>
+                            <field name="sponsorship_evidence"/>
+                            <field name="sponsorship_reason"/>
+                            <field name="sponsorship_analysis_ids" readonly="1">
+                                <tree>
+                                    <field name="analyzed_at"/>
+                                    <field name="status"/>
+                                    <field name="confidence"/>
+                                    <field name="match_score_snapshot"/>
+                                    <field name="priority_score"/>
+                                    <field name="evidence_source"/>
+                                    <field name="analyzed_by"/>
+                                </tree>
+                            </field>
+                        </page>
                         <page string="Application Documents" name="application_documents">
+                            <p class="text-muted">Generated versions use only the approved profile snapshot. Review and approval are explicit; generation never applies to the vacancy.</p>
+                            <field name="document_ids" readonly="1" context="{'default_application_id': active_id}">
+                                <tree create="0" delete="0">
+                                    <field name="version"/><field name="state"/><field name="profile_id"/><field name="profile_version"/>
+                                    <field name="generated_at"/><field name="validation_state"/>
+                                </tree>
+                            </field>
+                            <separator string="Legacy manual documents"/>
                             <group>
                                 <field name="cv_filename" invisible="1"/>
                                 <field name="cv_file" filename="cv_filename"/>
@@ -136,6 +197,7 @@
                 <field name="company_name"/>
                 <field name="location"/>
                 <field name="source"/>
+                <field name="sponsorship_status"/>
                 <separator/>
                 <filter name="state_found" string="Found" domain="[('state', '=', 'found')]"/>
                 <filter name="state_analysing" string="Analysing" domain="[('state', '=', 'analysing')]"/>
@@ -153,6 +215,7 @@
                 <group expand="0" string="Group By">
                     <filter name="group_by_state" string="State" context="{'group_by': 'state'}"/>
                     <filter name="group_by_source" string="Source" context="{'group_by': 'source'}"/>
+                    <filter name="group_by_sponsorship" string="Sponsorship" context="{'group_by': 'sponsorship_status'}"/>
                 </group>
             </search>
         </field>
@@ -167,6 +230,33 @@
             <p class="o_view_nocontent_smiling_face">Create your first job application</p>
             <p>Track each opportunity from discovery through the final decision.</p>
         </field>
+    </record>
+
+    <record id="action_analyze_selected_jobs" model="ir.actions.server">
+        <field name="name">Analyse selected vacancies</field>
+        <field name="model_id" ref="model_job_application"/>
+        <field name="binding_model_id" ref="model_job_application"/>
+        <field name="binding_view_types">list</field>
+        <field name="state">code</field>
+        <field name="code">records.action_analyze_match()</field>
+    </record>
+
+    <record id="action_analyze_selected_sponsorship" model="ir.actions.server">
+        <field name="name">Analyse sponsorship for selected vacancies</field>
+        <field name="model_id" ref="model_job_application"/>
+        <field name="binding_model_id" ref="model_job_application"/>
+        <field name="binding_view_types">list</field>
+        <field name="state">code</field>
+        <field name="code">records.action_analyze_sponsorship()</field>
+    </record>
+
+    <record id="action_generate_selected_documents" model="ir.actions.server">
+        <field name="name">Generate tailored documents for selected vacancies</field>
+        <field name="model_id" ref="model_job_application"/>
+        <field name="binding_model_id" ref="model_job_application"/>
+        <field name="binding_view_types">list</field>
+        <field name="state">code</field>
+        <field name="code">records.action_generate_documents()</field>
     </record>
 
     <menuitem id="menu_job_hunter_root"

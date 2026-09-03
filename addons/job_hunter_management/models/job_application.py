@@ -1,8 +1,8 @@
 import logging
-from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
-
 from odoo import _, api, fields, models
 from odoo.exceptions import ValidationError
+
+from .vacancy_contract import SOURCES, canonical_url
 
 
 _logger = logging.getLogger(__name__)
@@ -24,6 +24,10 @@ class JobApplication(models.Model):
             ("indeed", "Indeed"),
             ("jora", "Jora"),
             ("company_careers", "Company Careers"),
+            ("adzuna", "Adzuna"),
+            ("greenhouse", "Greenhouse"),
+            ("lever", "Lever"),
+            ("ashby", "Ashby"),
             ("other", "Other"),
         ],
         required=True,
@@ -45,7 +49,10 @@ class JobApplication(models.Model):
             ("analysing", "Analysing"),
             ("good_match", "Good Match"),
             ("ready_to_apply", "Ready to Apply"),
+            ("applying", "Applying"),
+            ("manual_action_required", "Manual Action Required"),
             ("applied", "Applied"),
+            ("application_failed", "Application Failed"),
             ("interview", "Interview"),
             ("offer", "Offer"),
             ("rejected", "Rejected"),
@@ -70,6 +77,9 @@ class JobApplication(models.Model):
     )
     last_sync_at = fields.Datetime(string="Last Sync At")
     created_by_integration = fields.Boolean(string="Created by Integration", default=False, index=True)
+    dedup_source_key = fields.Char(readonly=True, copy=False, index=True)
+    dedup_url_key = fields.Char(readonly=True, copy=False, index=True)
+    dedup_content_key = fields.Char(readonly=True, copy=False, index=True)
 
     _sql_constraints = [
         (
@@ -186,6 +196,12 @@ class JobApplication(models.Model):
             "salary_max": self.salary_max,
             "salary_currency": self.salary_currency or None,
             "sponsorship_status": self.sponsorship_status,
+            "sponsorship_confidence": self.sponsorship_confidence,
+            "sponsorship_evidence": self.sponsorship_evidence or None,
+            "sponsorship_evidence_source": self.sponsorship_evidence_source or None,
+            "sponsorship_reason": self.sponsorship_reason or None,
+            "sponsorship_analyzed_at": fields.Datetime.to_string(self.sponsorship_analyzed_at) if self.sponsorship_analyzed_at else None,
+            "priority_score": self.priority_score,
             "match_score": self.match_score,
             "state": self.state,
             "job_description": self.job_description or None,
@@ -203,20 +219,37 @@ class JobApplication(models.Model):
         This is shared by scheduled/manual discovery and keeps the API's model
         contract in one place.  It deliberately never changes application state.
         """
+        values = dict(values)
         source = values.get("source")
         source_job_id = values.get("source_job_id")
-        canonical = self._canonical_url(values.get("job_url"))
-        candidates = self.search([])
-        for record in candidates:
-            if source_job_id and record.source == source and record.source_job_id == source_job_id:
-                return False
-            if canonical and self._canonical_url(record.job_url) == canonical:
-                return False
-            if (record.company_name or "").strip().casefold() == (values.get("company_name") or "").strip().casefold() \
-                    and (record.name or "").strip().casefold() == (values.get("name") or "").strip().casefold() \
-                    and (record.location or "").strip().casefold() == (values.get("location") or "").strip().casefold():
-                return False
-        values = dict(values)
+        if source not in SOURCES or not source_job_id:
+            raise ValidationError(_("A supported source and source job ID are required for synchronization."))
+        values["job_url"] = canonical_url(values.get("job_url"))
+        values["dedup_source_key"] = "%s:%s" % (source, source_job_id.strip())
+        values["dedup_url_key"] = values["job_url"]
+        values["dedup_content_key"] = " | ".join(
+            (values.get(field_name) or "").strip().casefold()
+            for field_name in ("company_name", "name", "location")
+        )
+        domains = (
+            [("dedup_source_key", "=", values["dedup_source_key"])],
+            [("source", "=", source), ("source_job_id", "=", source_job_id)],
+            [("dedup_url_key", "=", values["dedup_url_key"])],
+            [("job_url", "=", values["job_url"])],
+            [("dedup_content_key", "=", values["dedup_content_key"])],
+            [("company_name", "=ilike", values.get("company_name")),
+             ("name", "=ilike", values.get("name")),
+             ("location", "=ilike", values.get("location"))],
+        )
+        if any(self.with_context(active_test=False).search_count(domain) for domain in domains):
+            return False
+        # Records created before Phase 9 have no explicit keys; compare their URL canonically once.
+        for legacy in self.with_context(active_test=False).search([("dedup_url_key", "=", False)]):
+            try:
+                if canonical_url(legacy.job_url) == values["dedup_url_key"]:
+                    return False
+            except ValidationError:
+                continue
         values.setdefault("state", "found")
         values.setdefault("sponsorship_status", "unknown")
         values["created_by_integration"] = True
@@ -226,12 +259,7 @@ class JobApplication(models.Model):
 
     @staticmethod
     def _canonical_url(url):
-        parts = urlsplit((url or "").strip())
-        if not parts.scheme or not parts.netloc:
-            return ""
-        query = [(key, value) for key, value in parse_qsl(parts.query, keep_blank_values=True)
-                 if key.lower() not in {"ref", "source", "trk"} and not key.lower().startswith("utm_")]
-        return urlunsplit((parts.scheme.lower(), parts.netloc.lower(), parts.path.rstrip("/") or "/", urlencode(query), ""))
+        return canonical_url(url)
 
     @api.constrains("external_id")
     def _check_external_id(self):

@@ -28,6 +28,7 @@
         "data/commercial_property_maintenance_actions.xml",
         "data/commercial_property_handover_actions.xml",
         "data/commercial_lease_penalty_actions.xml",
+        "data/commercial_lease_rent_payment_actions.xml",
         "data/commercial_property_portfolio_actions.xml",
         "data/commercial_property_distribution_channel_actions.xml",
         "views/commercial_property_views.xml",

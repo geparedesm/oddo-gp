@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_job_application_attempt_tree" model="ir.ui.view">
+        <field name="name">job.application.attempt.tree</field>
+        <field name="model">job.application.attempt</field>
+        <field name="arch" type="xml">
+            <tree create="0" edit="0" delete="0" string="Application Attempts">
+                <field name="application_id"/>
+                <field name="initiated_by"/>
+                <field name="platform"/>
+                <field name="started_at"/>
+                <field name="completed_at"/>
+                <field name="submitted_at"/>
+                <field name="state"/>
+                <field name="result"/>
+                <field name="confirmation_reference"/>
+                <field name="retryable"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_job_application_attempt_form" model="ir.ui.view">
+        <field name="name">job.application.attempt.form</field>
+        <field name="model">job.application.attempt</field>
+        <field name="arch" type="xml">
+            <form create="0" edit="0" delete="0" string="Application Attempt Audit">
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="application_id"/>
+                            <field name="initiated_by"/>
+                            <field name="approval_id"/>
+                            <field name="document_id"/>
+                            <field name="retry_of_id"/>
+                            <field name="platform"/>
+                            <field name="adapter_key" groups="base.group_system"/>
+                        </group>
+                        <group>
+                            <field name="state"/>
+                            <field name="result"/>
+                            <field name="started_at"/>
+                            <field name="completed_at"/>
+                            <field name="submitted_at"/>
+                            <field name="retryable"/>
+                        </group>
+                    </group>
+                    <group>
+                        <field name="application_url" widget="url"/>
+                        <field name="confirmation_reference"/>
+                        <field name="error_message"/>
+                    </group>
+                    <notebook>
+                        <page string="Safe Answers"><field name="safe_answers" widget="json"/></page>
+                        <page string="Questions Requiring User Input"><field name="escalated_questions" widget="json"/></page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_job_application_form_phase8" model="ir.ui.view">
+        <field name="name">job.application.form.phase8</field>
+        <field name="model">job.application</field>
+        <field name="inherit_id" ref="job_hunter_management.view_job_application_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//form/header/field[@name='state']" position="before">
+                <button name="action_start_application" type="object" string="Prepare Application"
+                        class="oe_highlight" states="ready_to_apply"
+                        confirm="This prepares the approved application with the manual adapter and never submits it. Continue?"/>
+                <button name="action_retry_application" type="object" string="Retry Technical Failure"
+                        states="application_failed"
+                        confirm="Retry only after verifying that no submission may have succeeded. Continue?"/>
+            </xpath>
+            <xpath expr="//form/sheet/notebook/page[@name='application_documents']" position="after">
+                <page string="Application Attempts" name="application_attempts">
+                    <p class="text-muted">Audit-only history. Manual preparation stops before submission; unknown or sensitive questions require user input.</p>
+                    <field name="application_attempt_ids" readonly="1">
+                        <tree create="0" edit="0" delete="0">
+                            <field name="platform"/><field name="started_at"/><field name="completed_at"/>
+                            <field name="state"/><field name="result"/><field name="confirmation_reference"/>
+                            <field name="document_id"/><field name="retryable"/>
+                        </tree>
+                    </field>
+                </page>
+            </xpath>
+            <xpath expr="//form/sheet/notebook/page[@name='application_documents']/p" position="after">
+                <field name="cover_letter_required"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

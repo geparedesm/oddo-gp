@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+    <record id="sponsorship_rule_default" model="job.sponsorship.rule">
+        <field name="name">Default sponsorship priority</field>
+        <field name="yes_adjustment">20</field>
+        <field name="unknown_adjustment">0</field>
+        <field name="no_adjustment">-50</field>
+    </record>
+</odoo>

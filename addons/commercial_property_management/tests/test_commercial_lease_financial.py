@@ -58,6 +58,11 @@ class TestCommercialLeaseFinancial(TransactionCase):
         values.update(extra)
         return self.env["commercial.lease.rent.adjustment"].with_user(self.manager).create(values)
 
+    def _payment(self, **extra):
+        values = {"lease_id": self.lease.id, "amount": 1500}
+        values.update(extra)
+        return self.env["commercial.lease.rent.payment"].with_user(self.manager).create(values)
+
     # Deposit lifecycle
 
     def test_deposit_lifecycle_held_then_refunded(self):
@@ -138,6 +143,37 @@ class TestCommercialLeaseFinancial(TransactionCase):
         with self.assertRaises(AccessError):
             self.env["commercial.lease.penalty"].with_user(self.user).create(
                 {"lease_id": self.lease.id, "amount": 50}
+            )
+
+    # Rent payments
+
+    def test_payment_confirm_updates_total_paid_amount(self):
+        payment = self._payment()
+        self.assertEqual(self.lease.total_paid_amount, 0)
+
+        payment.action_confirm()
+        self.assertEqual(payment.state, "confirmed")
+        self.assertEqual(self.lease.total_paid_amount, 1500)
+
+        other_payment = self._payment(amount=200)
+        self.assertEqual(self.lease.total_paid_amount, 1500)
+        other_payment.action_confirm()
+        self.assertEqual(self.lease.total_paid_amount, 1700)
+
+    def test_payment_amount_must_be_positive(self):
+        with self.assertRaises(ValidationError):
+            self._payment(amount=0)
+
+    def test_confirmed_payment_cannot_be_confirmed_again(self):
+        payment = self._payment()
+        payment.action_confirm()
+        with self.assertRaises(ValidationError):
+            payment.action_confirm()
+
+    def test_property_user_cannot_create_payment(self):
+        with self.assertRaises(AccessError):
+            self.env["commercial.lease.rent.payment"].with_user(self.user).create(
+                {"lease_id": self.lease.id, "amount": 500}
             )
 
     # Renewal

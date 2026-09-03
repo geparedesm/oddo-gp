@@ -55,6 +55,11 @@ class HermesJobHunterController(http.Controller):
             return None
         return payload if isinstance(payload, dict) else None
 
+    def _read_optional_empty_json(self):
+        if not request.httprequest.data:
+            return {}
+        return self._read_json()
+
     def _validate_payload(self, payload, allowed, required=()):
         unknown = set(payload) - allowed
         missing = [field for field in required if field not in payload]
@@ -126,6 +131,18 @@ class HermesJobHunterController(http.Controller):
                 return self._error(500, "internal_error", "The job could not be created.")
             return self._error(409, "conflict", error)
         return self._record_response(record, status=200 if idempotent else 201, idempotent=idempotent)
+
+    @http.route("/api/job-hunter/search/run", type="http", auth="none", methods=["POST"], csrf=False)
+    def run_profile_searches(self, **params):
+        if not self._is_authenticated():
+            return self._error(401, "unauthorized", "A valid bearer token is required.")
+        if params:
+            return self._error(400, "invalid_payload", "Query parameters are not accepted.")
+        payload = self._read_optional_empty_json()
+        if payload is None or payload:
+            return self._error(400, "invalid_payload", "Only an empty JSON object is accepted.")
+        summary = request.env["job.hunter.profile"].sudo().run_all_hermes_searches()
+        return self._json_response(summary)
 
     @http.route("/api/job-hunter/jobs", type="http", auth="none", methods=["GET"], csrf=False)
     def list_jobs(self, **params):

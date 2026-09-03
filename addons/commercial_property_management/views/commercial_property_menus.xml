@@ -66,6 +66,7 @@
     <menuitem id="menu_commercial_property_maintenance_dashboard" name="Maintenance Dashboard" parent="menu_commercial_operations" action="commercial_property_management.action_commercial_property_maintenance_dashboard" sequence="20" groups="commercial_property_management.group_property_manager"/>
     <menuitem id="menu_commercial_property_handover" name="Delivery / Return Checklists" parent="menu_commercial_operations" action="commercial_property_management.action_commercial_property_handover" sequence="30" groups="commercial_property_management.group_property_manager"/>
     <menuitem id="menu_commercial_lease_penalty" name="Penalties" parent="menu_commercial_operations" action="commercial_property_management.action_commercial_lease_penalty" sequence="40" groups="commercial_property_management.group_property_manager"/>
+    <menuitem id="menu_commercial_lease_rent_payment" name="Rent Payments" parent="menu_commercial_operations" action="commercial_property_management.action_commercial_lease_rent_payment" sequence="50" groups="commercial_property_management.group_property_manager"/>
 
     <!-- Analytics: dashboards and reporting only. Distribution Channels is
          plain configuration data (see menu_commercial_configuration below),

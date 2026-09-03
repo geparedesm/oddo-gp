@@ -6,6 +6,7 @@
         <field name="arch" type="xml">
             <tree>
                 <field name="name"/>
+                <field name="profile_id"/>
                 <field name="keywords"/>
                 <field name="location"/>
                 <field name="modalidad"/>
@@ -26,14 +27,21 @@
                     <group>
                         <field name="name"/>
                         <field name="active"/>
-                        <field name="keywords"/>
-                        <field name="roles"/>
-                        <field name="location"/>
-                        <field name="modalidad"/>
-                        <field name="salary_min"/>
+                        <field name="profile_id"/>
+                        <field name="keywords" attrs="{'invisible': [('profile_id', '!=', False)]}"/>
+                        <field name="roles" attrs="{'invisible': [('profile_id', '!=', False)]}"/>
+                        <field name="location" attrs="{'invisible': [('profile_id', '!=', False)]}"/>
+                        <field name="modalidad" attrs="{'invisible': [('profile_id', '!=', False)]}"/>
+                        <field name="salary_min" attrs="{'invisible': [('profile_id', '!=', False)]}"/>
+                        <field name="profile_roles" attrs="{'invisible': [('profile_id', '=', False)]}"/>
+                        <field name="profile_location" attrs="{'invisible': [('profile_id', '=', False)]}"/>
+                        <field name="profile_modalities" attrs="{'invisible': [('profile_id', '=', False)]}"/>
+                        <field name="profile_salary_min" attrs="{'invisible': [('profile_id', '=', False)]}"/>
+                        <field name="profile_salary_currency" attrs="{'invisible': [('profile_id', '=', False)]}"/>
                         <field name="max_age_days"/>
                         <field name="source_ids" widget="many2many_tags"/>
                         <field name="last_run_at" readonly="1"/>
+                        <field name="profile_last_hermes_search_at" attrs="{'invisible': [('profile_id', '=', False)]}"/>
                     </group>
                 </sheet>
             </form>
@@ -46,6 +54,7 @@
             <tree>
                 <field name="started_at"/>
                 <field name="config_id"/>
+                <field name="profile_id"/>
                 <field name="state"/>
                 <field name="total_found"/>
                 <field name="total_new"/>
@@ -63,6 +72,7 @@
                 <sheet>
                     <group>
                         <field name="config_id"/>
+                        <field name="profile_id"/>
                         <field name="state"/>
                         <field name="started_at"/>
                         <field name="finished_at"/>

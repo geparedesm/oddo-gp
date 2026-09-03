@@ -136,6 +136,20 @@ class TestCommercialPropertyRent(TransactionCase):
             )["arch"].encode()
         )
 
+        expected_rent_fields = {
+            id(property_arch): (
+                ("minimum_suggested_rent", "Minimum Suggested Rent"),
+                ("maximum_suggested_rent", "Maximum Suggested Rent"),
+                ("final_monthly_rent", "Final Monthly Rent"),
+                ("public_monthly_rent", "Public Monthly Rent"),
+            ),
+            id(unit_arch): (
+                ("recommended_monthly_rent", "Recommended Monthly Rent"),
+                ("final_monthly_rent", "Final Monthly Rent"),
+                ("public_monthly_rent", "Public Monthly Rent"),
+            ),
+        }
+
         for arch, main_section in (
             (property_arch, "Property Details"),
             (unit_arch, "Unit Details"),
@@ -149,11 +163,7 @@ class TestCommercialPropertyRent(TransactionCase):
                 main_groups[0].xpath(".//field[@name='monthly_rent']"),
                 "Legacy monthly_rent must not appear in %s" % main_section,
             )
-            for field_name, label in (
-                ("recommended_monthly_rent", "Recommended Monthly Rent"),
-                ("final_monthly_rent", "Final Monthly Rent"),
-                ("public_monthly_rent", "Public Monthly Rent"),
-            ):
+            for field_name, label in expected_rent_fields[id(arch)]:
                 fields = arch.xpath("//field[@name=$field_name]", field_name=field_name)
                 self.assertTrue(fields, "Expected %s in manager view" % field_name)
                 self.assertTrue(

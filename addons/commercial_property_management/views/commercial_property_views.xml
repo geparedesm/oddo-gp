@@ -64,7 +64,8 @@
                                     <field name="code"/><field name="name"/><field name="area"/>
                                     <field name="area_share" string="Informational Area Share (%)" groups="commercial_property_management.group_property_manager"/>
                                     <field name="final_monthly_rent" string="Final Monthly Rent" widget="monetary" groups="commercial_property_management.group_property_manager"/>
-                                    <field name="recommended_monthly_rent" string="Recommended Monthly Rent" widget="monetary" groups="commercial_property_management.group_property_manager"/>
+                                    <field name="minimum_suggested_rent" string="Minimum Suggested Rent" widget="monetary" groups="commercial_property_management.group_property_manager"/>
+                                    <field name="maximum_suggested_rent" string="Maximum Suggested Rent" widget="monetary" groups="commercial_property_management.group_property_manager"/>
                                     <field name="rent_status" widget="badge" groups="commercial_property_management.group_property_manager"/>
                                     <field name="currency_id" invisible="1"/><field name="state" widget="badge"/>
                                 </tree>

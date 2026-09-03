@@ -676,13 +676,91 @@ Definition of Done:
 # Checklist final del proyecto
 
 - [x] Fase 1 — Base Odoo
-- [ ] Fase 2 — API Odoo ↔ Hermes
-- [ ] Fase 3 — Búsqueda automática
-- [ ] Fase 4 — Matching con CV
-- [ ] Fase 5 — Sponsorship
-- [ ] Fase 6 — CV + Cover Letter
-- [ ] Fase 7 — WhatsApp Approval
-- [ ] Fase 8 — Aplicación asistida/automática
+- [x] Fase 2 — API Odoo ↔ Hermes
+- [x] Fase 3 — Búsqueda automática
+- [x] Fase 4 — Matching con CV
+- [x] Fase 5 — Sponsorship
+- [x] Fase 6 — CV + Cover Letter
+- [x] Fase 7 — WhatsApp Approval
+- [x] Fase 8 — Aplicación asistida/automática
+
+## Fases futuras — Integración de fuentes reales
+
+Estas fases sustituyen progresivamente los `FixtureAdapter` por fuentes reales,
+respetando APIs oficiales, feeds autorizados, límites de uso, robots.txt y los
+términos de cada proveedor. Ninguna fase habilita la aplicación automática.
+
+- [x] Fase 9 — Contrato común de fuentes reales
+  - Definir el contrato normalizado de vacantes para título, empresa, ubicación,
+    URL canónica, descripción, salario, moneda, modalidad, fecha y fuente.
+  - Mantener deduplicación por fuente/ID, URL canónica y empresa+título+ubicación.
+  - Registrar proveedor, timestamp de consulta, paginación, límites, errores y
+    estado de disponibilidad de cada fuente.
+  - Añadir pruebas de normalización, campos faltantes, URLs inválidas y fallos
+    parciales.
+
+- [x] Fase 10 — Adzuna API
+  - Integrar la API oficial de Adzuna para Australia (`au`).
+  - Configurar `ADZUNA_APP_ID` y `ADZUNA_APP_KEY` únicamente como secretos.
+  - Mapear keywords, roles, ubicación, salario mínimo, modalidad y antigüedad
+    desde cada perfil profesional activo.
+  - Implementar paginación, rate limiting, reintentos seguros y errores parciales.
+  - Validar que las URLs devueltas sean reales y que la respuesta no se almacene
+    con credenciales.
+  - Añadir pruebas con fixtures HTTP controlados y una prueba de conectividad
+    explícita cuando existan credenciales autorizadas.
+  - Implementado con la fuente inactiva por defecto y sin conectividad automática:
+    la prueba opcional real solo debe ejecutarse de forma manual cuando el operador
+    haya autorizado/configurado `ADZUNA_APP_ID` y `ADZUNA_APP_KEY`. La suite normal
+    intercepta todo HTTP y no realiza scraping ni llamadas externas.
+  - Las credenciales y la activación también se pueden configurar desde Odoo en
+    `Job Hunter → WhatsApp Settings → Real job sources`.
+
+- [ ] Fase 11 — APIs públicas de bolsas ATS
+  - Integrar bolsas públicas de Greenhouse Job Board, Lever Postings y Ashby.
+  - Permitir configurar empresas objetivo mediante identificador/slug del ATS.
+  - Consultar únicamente endpoints públicos y autorizados.
+  - Añadir descripción completa cuando el proveedor la publique y conservar la
+    URL directa de aplicación.
+  - Probar deduplicación entre Adzuna y cada ATS.
+
+- [ ] Fase 12 — Workday, Workable y Recruitee
+  - Incorporar adaptadores solo para empresas y endpoints públicos confirmados.
+  - Validar robots.txt, límites y estructura de cada tenant antes de activar una
+    fuente.
+  - Normalizar modalidad, salario, fecha y URL de aplicación.
+  - Registrar tenants no disponibles sin interrumpir las demás fuentes.
+
+- [ ] Fase 13 — APSJobs y fuentes gubernamentales australianas
+  - Evaluar API, feed o proveedor autorizado para APSJobs.
+  - No hacer scraping directo si no existe autorización explícita.
+  - Mapear agencia, clasificación APS, ubicación, salario y fecha de cierre.
+  - Añadir pruebas de clasificación y de vacantes cerradas.
+
+- [ ] Fase 14 — LinkedIn, SEEK e Indeed mediante acceso autorizado
+  - Integrar únicamente APIs oficiales, acuerdos de partner o proveedores
+    licenciados que autoricen la consulta de vacantes.
+  - No implementar scraping directo ni automatizar el acceso con credenciales
+    personales.
+  - Documentar proveedor, licencia, alcance, límites y URL de origen real.
+  - Validar legalidad, estabilidad, renovación de credenciales y coste antes de
+    activar cada fuente en producción.
+
+- [ ] Fase 15 — Activación progresiva y observabilidad
+  - Añadir configuración por fuente: activa, prioridad, frecuencia y límite.
+  - Ejecutar primero en modo solo lectura/simulación y después en producción.
+  - Mostrar última ejecución, última respuesta válida, nuevas, duplicadas y
+    errores por fuente.
+  - Crear alertas para expiración de credenciales, HTTP 401/403/429, cambios de
+    esquema y ausencia anormal de resultados.
+  - Verificar que los perfiles múltiples se procesen de forma aislada.
+
+- [ ] Fase 16 — Validación de producción
+  - Ejecutar búsquedas reales controladas con un perfil de prueba autorizado.
+  - Confirmar que todas las URLs abren una vacante real vigente.
+  - Verificar matching, sponsorship, priority score y timestamp de última búsqueda.
+  - Confirmar deduplicación entre ejecuciones consecutivas.
+  - Revisar logs, secretos, permisos, costes, límites y limpieza de datos de prueba.
 
 ## Flujo final esperado
 

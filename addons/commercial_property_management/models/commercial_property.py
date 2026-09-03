@@ -159,7 +159,7 @@ class CommercialProperty(models.Model):
     def write(self, vals):
         result = super().write(vals)
         unit_fields = {
-            "area", "monthly_rent", "available_date", "image_1920", "notes",
+            "monthly_rent", "available_date", "image_1920", "notes",
             "public_name", "public_description", "public_monthly_rent",
             "public_feature_ids", "is_published",
         }
@@ -174,6 +174,9 @@ class CommercialProperty(models.Model):
         unit_model = self.env["commercial.property.unit"]
         for property_record in self:
             default_unit = property_record.default_unit_id or property_record.unit_ids.filtered("is_default")[:1]
+            if not default_unit:
+                # Prefer an existing real unit over fabricating one that mirrors the property.
+                default_unit = property_record.unit_ids[:1]
             if not default_unit:
                 default_unit = unit_model.create(
                     {
@@ -194,6 +197,8 @@ class CommercialProperty(models.Model):
                         "is_published": property_record.is_published,
                     }
                 )
+            elif not default_unit.is_default:
+                default_unit.is_default = True
             if property_record.default_unit_id != default_unit:
                 property_record.default_unit_id = default_unit
         return True
