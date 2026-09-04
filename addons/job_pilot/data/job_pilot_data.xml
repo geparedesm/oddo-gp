@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+    <record id="skill_category_technical" model="job_pilot.skill.category">
+        <field name="name">Technical</field>
+        <field name="sequence">10</field>
+    </record>
+    <record id="skill_category_soft" model="job_pilot.skill.category">
+        <field name="name">Soft Skills</field>
+        <field name="sequence">20</field>
+    </record>
+    <record id="skill_category_tools" model="job_pilot.skill.category">
+        <field name="name">Tools &amp; Software</field>
+        <field name="sequence">30</field>
+    </record>
+    <record id="skill_category_uncategorized" model="job_pilot.skill.category">
+        <field name="name">Uncategorized</field>
+        <field name="sequence">99</field>
+    </record>
+</odoo>

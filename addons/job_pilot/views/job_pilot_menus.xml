@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <menuitem id="menu_job_pilot_root" name="Job Pilot" sequence="90" web_icon="job_pilot,static/description/icon.png" groups="job_pilot.group_job_pilot_user,-base.group_no_one"/>
+
+    <menuitem id="menu_job_pilot_profile" name="Career Profiles" parent="menu_job_pilot_root"
+              action="action_job_pilot_profile" sequence="10"/>
+
+    <menuitem id="menu_job_pilot_cv_upload" name="CV Uploads" parent="menu_job_pilot_root"
+              action="action_job_pilot_cv_upload" sequence="20"/>
+
+    <menuitem id="menu_job_pilot_config" name="Configuration" parent="menu_job_pilot_root" sequence="90"
+              groups="job_pilot.group_job_pilot_manager"/>
+
+    <menuitem id="menu_job_pilot_skill_category" name="Skill Categories" parent="menu_job_pilot_config"
+              action="action_job_pilot_skill_category" sequence="10"/>
+
+    <menuitem id="menu_job_pilot_codex_settings" name="Codex API" parent="menu_job_pilot_config"
+              action="action_job_pilot_codex_settings" sequence="20"/>
+</odoo>

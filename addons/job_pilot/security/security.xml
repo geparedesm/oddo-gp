@@ -1,0 +1,216 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="module_category_job_pilot" model="ir.module.category">
+        <field name="name">Job Pilot</field>
+        <field name="sequence">50</field>
+    </record>
+
+    <record id="group_job_pilot_user" model="res.groups">
+        <field name="name">User: Manage own profile</field>
+        <field name="category_id" ref="module_category_job_pilot"/>
+        <field name="implied_ids" eval="[(4, ref('base.group_user'))]"/>
+    </record>
+
+    <record id="group_job_pilot_manager" model="res.groups">
+        <field name="name">Manager: Access all profiles</field>
+        <field name="category_id" ref="module_category_job_pilot"/>
+        <field name="implied_ids" eval="[(4, ref('job_pilot.group_job_pilot_user'))]"/>
+    </record>
+
+    <!-- Profile: users see only their own profile, managers see all -->
+    <record id="job_pilot_profile_user_rule" model="ir.rule">
+        <field name="name">Career Profile: own profile only</field>
+        <field name="model_id" ref="model_job_pilot_profile"/>
+        <field name="domain_force">[('user_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('job_pilot.group_job_pilot_user'))]"/>
+    </record>
+    <record id="job_pilot_profile_manager_rule" model="ir.rule">
+        <field name="name">Career Profile: all profiles</field>
+        <field name="model_id" ref="model_job_pilot_profile"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+        <field name="groups" eval="[(4, ref('job_pilot.group_job_pilot_manager'))]"/>
+    </record>
+
+    <!-- Child records: scoped through profile_id.user_id -->
+    <record id="job_pilot_attribute_user_rule" model="ir.rule">
+        <field name="name">Career Profile Attribute: own profile only</field>
+        <field name="model_id" ref="model_job_pilot_profile_attribute"/>
+        <field name="domain_force">[('profile_id.user_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('job_pilot.group_job_pilot_user'))]"/>
+    </record>
+    <record id="job_pilot_attribute_manager_rule" model="ir.rule">
+        <field name="name">Career Profile Attribute: all profiles</field>
+        <field name="model_id" ref="model_job_pilot_profile_attribute"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+        <field name="groups" eval="[(4, ref('job_pilot.group_job_pilot_manager'))]"/>
+    </record>
+
+    <record id="job_pilot_additional_info_user_rule" model="ir.rule">
+        <field name="name">Additional Info: own profile only</field>
+        <field name="model_id" ref="model_job_pilot_additional_info"/>
+        <field name="domain_force">[('profile_id.user_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('job_pilot.group_job_pilot_user'))]"/>
+    </record>
+    <record id="job_pilot_additional_info_manager_rule" model="ir.rule">
+        <field name="name">Additional Info: all profiles</field>
+        <field name="model_id" ref="model_job_pilot_additional_info"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+        <field name="groups" eval="[(4, ref('job_pilot.group_job_pilot_manager'))]"/>
+    </record>
+
+    <record id="job_pilot_skill_user_rule" model="ir.rule">
+        <field name="name">Skill: own profile only</field>
+        <field name="model_id" ref="model_job_pilot_skill"/>
+        <field name="domain_force">[('profile_id.user_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('job_pilot.group_job_pilot_user'))]"/>
+    </record>
+    <record id="job_pilot_skill_manager_rule" model="ir.rule">
+        <field name="name">Skill: all profiles</field>
+        <field name="model_id" ref="model_job_pilot_skill"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+        <field name="groups" eval="[(4, ref('job_pilot.group_job_pilot_manager'))]"/>
+    </record>
+
+    <record id="job_pilot_experience_user_rule" model="ir.rule">
+        <field name="name">Work Experience: own profile only</field>
+        <field name="model_id" ref="model_job_pilot_work_experience"/>
+        <field name="domain_force">[('profile_id.user_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('job_pilot.group_job_pilot_user'))]"/>
+    </record>
+    <record id="job_pilot_experience_manager_rule" model="ir.rule">
+        <field name="name">Work Experience: all profiles</field>
+        <field name="model_id" ref="model_job_pilot_work_experience"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+        <field name="groups" eval="[(4, ref('job_pilot.group_job_pilot_manager'))]"/>
+    </record>
+
+    <record id="job_pilot_experience_project_user_rule" model="ir.rule">
+        <field name="name">Work Experience Project: own profile only</field>
+        <field name="model_id" ref="model_job_pilot_work_experience_project"/>
+        <field name="domain_force">[('profile_id.user_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('job_pilot.group_job_pilot_user'))]"/>
+    </record>
+    <record id="job_pilot_experience_project_manager_rule" model="ir.rule">
+        <field name="name">Work Experience Project: all profiles</field>
+        <field name="model_id" ref="model_job_pilot_work_experience_project"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+        <field name="groups" eval="[(4, ref('job_pilot.group_job_pilot_manager'))]"/>
+    </record>
+
+    <record id="job_pilot_experience_item_user_rule" model="ir.rule">
+        <field name="name">Work Experience Item: own profile only</field>
+        <field name="model_id" ref="model_job_pilot_work_experience_item"/>
+        <field name="domain_force">[('profile_id.user_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('job_pilot.group_job_pilot_user'))]"/>
+    </record>
+    <record id="job_pilot_experience_item_manager_rule" model="ir.rule">
+        <field name="name">Work Experience Item: all profiles</field>
+        <field name="model_id" ref="model_job_pilot_work_experience_item"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+        <field name="groups" eval="[(4, ref('job_pilot.group_job_pilot_manager'))]"/>
+    </record>
+
+    <record id="job_pilot_education_user_rule" model="ir.rule">
+        <field name="name">Education: own profile only</field>
+        <field name="model_id" ref="model_job_pilot_education"/>
+        <field name="domain_force">[('profile_id.user_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('job_pilot.group_job_pilot_user'))]"/>
+    </record>
+    <record id="job_pilot_education_manager_rule" model="ir.rule">
+        <field name="name">Education: all profiles</field>
+        <field name="model_id" ref="model_job_pilot_education"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+        <field name="groups" eval="[(4, ref('job_pilot.group_job_pilot_manager'))]"/>
+    </record>
+
+    <record id="job_pilot_certification_user_rule" model="ir.rule">
+        <field name="name">Certification: own profile only</field>
+        <field name="model_id" ref="model_job_pilot_certification"/>
+        <field name="domain_force">[('profile_id.user_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('job_pilot.group_job_pilot_user'))]"/>
+    </record>
+    <record id="job_pilot_certification_manager_rule" model="ir.rule">
+        <field name="name">Certification: all profiles</field>
+        <field name="model_id" ref="model_job_pilot_certification"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+        <field name="groups" eval="[(4, ref('job_pilot.group_job_pilot_manager'))]"/>
+    </record>
+
+    <record id="job_pilot_language_user_rule" model="ir.rule">
+        <field name="name">Language: own profile only</field>
+        <field name="model_id" ref="model_job_pilot_language"/>
+        <field name="domain_force">[('profile_id.user_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('job_pilot.group_job_pilot_user'))]"/>
+    </record>
+    <record id="job_pilot_language_manager_rule" model="ir.rule">
+        <field name="name">Language: all profiles</field>
+        <field name="model_id" ref="model_job_pilot_language"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+        <field name="groups" eval="[(4, ref('job_pilot.group_job_pilot_manager'))]"/>
+    </record>
+
+    <record id="job_pilot_leadership_user_rule" model="ir.rule">
+        <field name="name">Leadership &amp; Volunteering: own profile only</field>
+        <field name="model_id" ref="model_job_pilot_leadership_volunteering"/>
+        <field name="domain_force">[('profile_id.user_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('job_pilot.group_job_pilot_user'))]"/>
+    </record>
+    <record id="job_pilot_leadership_manager_rule" model="ir.rule">
+        <field name="name">Leadership &amp; Volunteering: all profiles</field>
+        <field name="model_id" ref="model_job_pilot_leadership_volunteering"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+        <field name="groups" eval="[(4, ref('job_pilot.group_job_pilot_manager'))]"/>
+    </record>
+
+    <record id="job_pilot_reference_user_rule" model="ir.rule">
+        <field name="name">Reference: own profile only</field>
+        <field name="model_id" ref="model_job_pilot_reference"/>
+        <field name="domain_force">[('profile_id.user_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('job_pilot.group_job_pilot_user'))]"/>
+    </record>
+    <record id="job_pilot_reference_manager_rule" model="ir.rule">
+        <field name="name">Reference: all profiles</field>
+        <field name="model_id" ref="model_job_pilot_reference"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+        <field name="groups" eval="[(4, ref('job_pilot.group_job_pilot_manager'))]"/>
+    </record>
+
+    <record id="job_pilot_cv_upload_user_rule" model="ir.rule">
+        <field name="name">CV Upload: own profile only</field>
+        <field name="model_id" ref="model_job_pilot_cv_upload"/>
+        <field name="domain_force">[('profile_id.user_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('job_pilot.group_job_pilot_user'))]"/>
+    </record>
+    <record id="job_pilot_cv_upload_manager_rule" model="ir.rule">
+        <field name="name">CV Upload: all profiles</field>
+        <field name="model_id" ref="model_job_pilot_cv_upload"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+        <field name="groups" eval="[(4, ref('job_pilot.group_job_pilot_manager'))]"/>
+    </record>
+
+    <record id="job_pilot_cv_import_line_user_rule" model="ir.rule">
+        <field name="name">CV Import Line: own profile only</field>
+        <field name="model_id" ref="model_job_pilot_cv_import_line"/>
+        <field name="domain_force">[('profile_id.user_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('job_pilot.group_job_pilot_user'))]"/>
+    </record>
+    <record id="job_pilot_cv_import_line_manager_rule" model="ir.rule">
+        <field name="name">CV Import Line: all profiles</field>
+        <field name="model_id" ref="model_job_pilot_cv_import_line"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+        <field name="groups" eval="[(4, ref('job_pilot.group_job_pilot_manager'))]"/>
+    </record>
+
+    <record id="job_pilot_cv_unclassified_user_rule" model="ir.rule">
+        <field name="name">CV Unclassified: own profile only</field>
+        <field name="model_id" ref="model_job_pilot_cv_unclassified"/>
+        <field name="domain_force">[('profile_id.user_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('job_pilot.group_job_pilot_user'))]"/>
+    </record>
+    <record id="job_pilot_cv_unclassified_manager_rule" model="ir.rule">
+        <field name="name">CV Unclassified: all profiles</field>
+        <field name="model_id" ref="model_job_pilot_cv_unclassified"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+        <field name="groups" eval="[(4, ref('job_pilot.group_job_pilot_manager'))]"/>
+    </record>
+</odoo>

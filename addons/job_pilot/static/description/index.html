@@ -1,0 +1,40 @@
+<section style="max-width: 850px; margin: 0 auto; font-family: -apple-system, Helvetica, Arial, sans-serif; color: #333;">
+    <div style="text-align:center; padding: 24px 0;">
+        <img src="icon.png" alt="Job Pilot" width="96" height="96"/>
+        <h1>Job Pilot &mdash; Career Profile</h1>
+        <p>Maintain a structured career profile and import data from uploaded CVs.</p>
+    </div>
+
+    <h2>Overview</h2>
+    <p>
+        Job Pilot lets each internal user maintain a complete career profile: personal
+        information, professional title/summary/attributes, skills, work experience with
+        projects and achievements, education, certifications, languages, leadership &amp;
+        volunteering, references and free-form additional information.
+    </p>
+
+    <h2>CV Import Workflow</h2>
+    <p>
+        Upload a CV (PDF or DOCX) against a profile and run it through a controlled
+        four-step workflow:
+    </p>
+    <ol>
+        <li><strong>Extract</strong> &mdash; pull raw text out of the PDF/DOCX file.</li>
+        <li><strong>Parse</strong> &mdash; detect contact details, professional summary,
+            skills and languages, proposing each as a reviewable change.</li>
+        <li><strong>Review</strong> &mdash; a human decides, line by line, whether to keep
+            existing data or apply the proposed value; duplicate skills/languages are
+            flagged and default to "keep" so nothing is overwritten silently. Anything the
+            parser could not confidently classify is listed separately as
+            <em>Unclassified Information</em> for manual handling.</li>
+        <li><strong>Import</strong> &mdash; once every line has an explicit decision, the
+            accepted changes are applied to the profile.</li>
+    </ol>
+
+    <h2>Safety</h2>
+    <p>
+        Existing profile data is never overwritten automatically. Every conflicting field
+        or duplicate record defaults to "Keep Existing / Skip" and requires an explicit
+        reviewer decision before import.
+    </p>
+</section>

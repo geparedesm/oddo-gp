@@ -1,0 +1,193 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_job_pilot_profile_list" model="ir.ui.view">
+        <field name="name">job_pilot.profile.list</field>
+        <field name="model">job_pilot.profile</field>
+        <field name="arch" type="xml">
+            <tree string="Career Profiles">
+                <field name="name"/>
+                <field name="user_id"/>
+                <field name="professional_title"/>
+                <field name="email"/>
+                <field name="phone"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_job_pilot_profile_form" model="ir.ui.view">
+        <field name="name">job_pilot.profile.form</field>
+        <field name="model">job_pilot.profile</field>
+        <field name="arch" type="xml">
+            <form string="Career Profile">
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_open_cv_uploads" type="object" class="oe_stat_button" icon="fa-file-pdf-o">
+                            <field name="cv_upload_count" widget="statinfo" string="CV Uploads"/>
+                        </button>
+                    </div>
+                    <field name="photo" widget="image" class="oe_avatar"/>
+                    <div class="oe_title">
+                        <field name="active" invisible="1"/>
+                        <h1><field name="name" placeholder="Full Name"/></h1>
+                        <field name="professional_title" placeholder="Professional Title"/>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="user_id"/>
+                            <field name="partner_id"/>
+                            <field name="email"/>
+                            <field name="phone"/>
+                            <field name="mobile"/>
+                        </group>
+                        <group>
+                            <field name="birthdate"/>
+                            <field name="gender"/>
+                            <field name="nationality_id"/>
+                        </group>
+                    </group>
+                    <group string="Address">
+                        <group>
+                            <field name="street"/>
+                            <field name="street2"/>
+                            <field name="city"/>
+                        </group>
+                        <group>
+                            <field name="state_id"/>
+                            <field name="zip"/>
+                            <field name="country_id"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Summary">
+                            <field name="professional_summary"/>
+                            <label for="attribute_ids"/>
+                            <field name="attribute_ids">
+                                <tree editable="bottom">
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="name"/>
+                                    <field name="value"/>
+                                </tree>
+                            </field>
+                        </page>
+                        <page string="Skills">
+                            <field name="skill_ids">
+                                <tree editable="bottom">
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="name"/>
+                                    <field name="category_id"/>
+                                    <field name="level"/>
+                                </tree>
+                            </field>
+                        </page>
+                        <page string="Work Experience">
+                            <field name="experience_ids">
+                                <tree editable="bottom">
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="company_name"/>
+                                    <field name="job_title"/>
+                                    <field name="start_date"/>
+                                    <field name="end_date"/>
+                                    <field name="currently_working"/>
+                                </tree>
+                            </field>
+                        </page>
+                        <page string="Education">
+                            <field name="education_ids">
+                                <tree editable="bottom">
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="institution"/>
+                                    <field name="degree"/>
+                                    <field name="field_of_study"/>
+                                    <field name="start_date"/>
+                                    <field name="end_date"/>
+                                </tree>
+                            </field>
+                        </page>
+                        <page string="Certifications">
+                            <field name="certification_ids">
+                                <tree editable="bottom">
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="name"/>
+                                    <field name="issuing_organization"/>
+                                    <field name="issue_date"/>
+                                    <field name="expiration_date"/>
+                                </tree>
+                            </field>
+                        </page>
+                        <page string="Languages">
+                            <field name="language_ids">
+                                <tree editable="bottom">
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="name"/>
+                                    <field name="proficiency"/>
+                                </tree>
+                            </field>
+                        </page>
+                        <page string="Leadership &amp; Volunteering">
+                            <field name="leadership_ids">
+                                <tree editable="bottom">
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="organization"/>
+                                    <field name="role"/>
+                                    <field name="cause"/>
+                                    <field name="start_date"/>
+                                    <field name="end_date"/>
+                                </tree>
+                            </field>
+                        </page>
+                        <page string="References">
+                            <field name="reference_ids">
+                                <tree editable="bottom">
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="name"/>
+                                    <field name="relationship"/>
+                                    <field name="company"/>
+                                    <field name="phone"/>
+                                    <field name="email"/>
+                                </tree>
+                            </field>
+                        </page>
+                        <page string="Additional Information">
+                            <field name="additional_info_ids">
+                                <tree editable="bottom">
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="title"/>
+                                    <field name="description"/>
+                                </tree>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+                <div class="oe_chatter">
+                    <field name="message_follower_ids"/>
+                    <field name="activity_ids"/>
+                    <field name="message_ids"/>
+                </div>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_job_pilot_profile_search" model="ir.ui.view">
+        <field name="name">job_pilot.profile.search</field>
+        <field name="model">job_pilot.profile</field>
+        <field name="arch" type="xml">
+            <search string="Search Career Profiles">
+                <field name="name"/>
+                <field name="user_id"/>
+                <field name="professional_title"/>
+                <field name="email"/>
+                <filter string="Archived" name="inactive" domain="[('active', '=', False)]"/>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_job_pilot_profile" model="ir.actions.act_window">
+        <field name="name">Career Profiles</field>
+        <field name="res_model">job_pilot.profile</field>
+        <field name="view_mode">tree,form</field>
+        <field name="search_view_id" ref="view_job_pilot_profile_search"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smart_action">Create your career profile.</p>
+        </field>
+    </record>
+</odoo>
